@@ -270,7 +270,11 @@ This project uses GitHub Actions for continuous integration and deployment:
 - **Build**: Compiles the project in release mode
 - **Test**: Runs all unit and integration tests
 - **Security Audit**: Checks dependencies for known vulnerabilities using `cargo audit`
-- **Docker**: Builds multi-architecture Docker images (amd64, arm64) on every PR (to verify correctness) and pushes to GitHub Container Registry (`ghcr.io`) on main branch
+- **Docker**: Uses an optimized multi-stage build process:
+  - **Binary Build**: Compiles binaries for amd64 and arm64 in parallel using matrix builds
+  - **Docker Build**: Creates architecture-specific images using pre-built binaries (fast, no QEMU emulation)
+  - **Manifest Creation**: Combines images into a multi-arch manifest on main branch
+  - Images are built on PRs for verification but only pushed to GitHub Container Registry (`ghcr.io`) on main branch
 
 ### Docker Images
 
@@ -278,6 +282,7 @@ Docker images are:
 - **Built on PRs**: Verified for correctness but not pushed to the registry
 - **Built and pushed on main branch**: Tagged with branch name and commit SHA
 - **Multi-architecture**: Supports both `linux/amd64` and `linux/arm64` (aarch64) platforms
+- **Optimized build**: Binaries are built natively for each architecture in parallel for faster CI times
 
 Images pushed to GitHub Container Registry are tagged with:
 - `main` or `master`: Branch reference tag

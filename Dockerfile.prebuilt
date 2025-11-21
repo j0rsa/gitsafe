@@ -1,0 +1,28 @@
+# Runtime stage only - uses pre-built binary
+FROM debian:bookworm-slim
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    libssl3 \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create app user
+RUN useradd -m -u 1000 gitsafe
+
+WORKDIR /app
+
+# Copy pre-built binary
+COPY binary/gitsafe /usr/local/bin/gitsafe
+
+# Create necessary directories
+RUN mkdir -p /app/archives && chown -R gitsafe:gitsafe /app
+
+USER gitsafe
+
+# Expose API port
+EXPOSE 8080
+
+# Run the application
+CMD ["gitsafe"]

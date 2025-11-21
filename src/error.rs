@@ -28,26 +28,18 @@ pub enum AppError {
 impl ResponseError for AppError {
     fn error_response(&self) -> HttpResponse {
         match self {
-            AppError::AuthError(_) => {
-                HttpResponse::Unauthorized().json(serde_json::json!({
-                    "error": self.to_string()
-                }))
-            }
-            AppError::NotFound(_) => {
-                HttpResponse::NotFound().json(serde_json::json!({
-                    "error": self.to_string()
-                }))
-            }
-            AppError::BadRequest(_) => {
-                HttpResponse::BadRequest().json(serde_json::json!({
-                    "error": self.to_string()
-                }))
-            }
-            _ => {
-                HttpResponse::InternalServerError().json(serde_json::json!({
-                    "error": self.to_string()
-                }))
-            }
+            AppError::AuthError(_) => HttpResponse::Unauthorized().json(serde_json::json!({
+                "error": self.to_string()
+            })),
+            AppError::NotFound(_) => HttpResponse::NotFound().json(serde_json::json!({
+                "error": self.to_string()
+            })),
+            AppError::BadRequest(_) => HttpResponse::BadRequest().json(serde_json::json!({
+                "error": self.to_string()
+            })),
+            _ => HttpResponse::InternalServerError().json(serde_json::json!({
+                "error": self.to_string()
+            })),
         }
     }
 

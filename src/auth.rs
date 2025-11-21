@@ -28,7 +28,12 @@ impl AuthService {
             .map_err(|e| AppError::AuthError(format!("Password hashing failed: {}", e)))
     }
 
-    pub fn authenticate(&self, username: &str, password: &str, users: &[User]) -> Result<String, AppError> {
+    pub fn authenticate(
+        &self,
+        username: &str,
+        password: &str,
+        users: &[User],
+    ) -> Result<String, AppError> {
         let user = users
             .iter()
             .find(|u| u.username == username)

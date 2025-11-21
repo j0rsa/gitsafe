@@ -72,7 +72,9 @@ pub async fn authenticate(
         .map_err(|_| AppError::AuthError("Invalid Authorization header".to_string()))?;
 
     if !auth_header.starts_with("Bearer ") {
-        return Err(AppError::AuthError("Invalid Authorization format".to_string()));
+        return Err(AppError::AuthError(
+            "Invalid Authorization format".to_string(),
+        ));
     }
 
     let token = &auth_header[7..];
@@ -86,12 +88,10 @@ pub async fn login(
     state: web::Data<AppState>,
 ) -> Result<HttpResponse, AppError> {
     let config = state.config.read().await;
-    let token = state.auth_service.authenticate(
-        &data.username,
-        &data.password,
-        &config.users,
-    )?;
-    
+    let token = state
+        .auth_service
+        .authenticate(&data.username, &data.password, &config.users)?;
+
     Ok(HttpResponse::Ok().json(LoginResponse { token }))
 }
 
@@ -100,7 +100,7 @@ pub async fn list_repositories(
     state: web::Data<AppState>,
 ) -> Result<HttpResponse, AppError> {
     authenticate(req, state.clone()).await?;
-    
+
     let config = state.config.read().await;
     let repositories: Vec<RepositoryResponse> = config
         .repositories
@@ -124,7 +124,7 @@ pub async fn add_repository(
     authenticate(req, state.clone()).await?;
 
     let mut config = state.config.write().await;
-    
+
     let repository = Repository {
         id: Uuid::new_v4().to_string(),
         url: data.url.clone(),
@@ -140,7 +140,8 @@ pub async fn add_repository(
     };
 
     config.repositories.push(repository);
-    config.save(&state.config_path)
+    config
+        .save(&state.config_path)
         .map_err(|e| AppError::ConfigError(e.to_string()))?;
 
     Ok(HttpResponse::Created().json(response))
@@ -155,15 +156,19 @@ pub async fn delete_repository(
 
     let repo_id = path.into_inner();
     let mut config = state.config.write().await;
-    
+
     let initial_len = config.repositories.len();
     config.repositories.retain(|r| r.id != repo_id);
-    
+
     if config.repositories.len() == initial_len {
-        return Err(AppError::NotFound(format!("Repository {} not found", repo_id)));
+        return Err(AppError::NotFound(format!(
+            "Repository {} not found",
+            repo_id
+        )));
     }
 
-    config.save(&state.config_path)
+    config
+        .save(&state.config_path)
         .map_err(|e| AppError::ConfigError(e.to_string()))?;
 
     Ok(HttpResponse::NoContent().finish())
@@ -177,7 +182,7 @@ pub async fn sync_repository(
     authenticate(req, state.clone()).await?;
 
     let config = state.config.read().await;
-    
+
     let repository = config
         .repositories
         .iter()
@@ -206,7 +211,7 @@ pub async fn list_credentials(
     state: web::Data<AppState>,
 ) -> Result<HttpResponse, AppError> {
     authenticate(req, state.clone()).await?;
-    
+
     let config = state.config.read().await;
     let credentials: Vec<CredentialResponse> = config
         .credentials
@@ -228,7 +233,7 @@ pub async fn add_credential(
     authenticate(req, state.clone()).await?;
 
     let mut config = state.config.write().await;
-    
+
     let credential = Credential {
         id: Uuid::new_v4().to_string(),
         username: data.username.clone(),
@@ -242,7 +247,8 @@ pub async fn add_credential(
     };
 
     config.credentials.insert(credential.id.clone(), credential);
-    config.save(&state.config_path)
+    config
+        .save(&state.config_path)
         .map_err(|e| AppError::ConfigError(e.to_string()))?;
 
     Ok(HttpResponse::Created().json(response))
@@ -257,12 +263,16 @@ pub async fn delete_credential(
 
     let cred_id = path.into_inner();
     let mut config = state.config.write().await;
-    
+
     if config.credentials.remove(&cred_id).is_none() {
-        return Err(AppError::NotFound(format!("Credential {} not found", cred_id)));
+        return Err(AppError::NotFound(format!(
+            "Credential {} not found",
+            cred_id
+        )));
     }
 
-    config.save(&state.config_path)
+    config
+        .save(&state.config_path)
         .map_err(|e| AppError::ConfigError(e.to_string()))?;
 
     Ok(HttpResponse::NoContent().finish())

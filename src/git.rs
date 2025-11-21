@@ -27,13 +27,12 @@ impl GitService {
     ) -> Result<PathBuf, AppError> {
         info!("Syncing repository: {} ({})", repo.id, repo.url);
 
-        let temp_dir = tempfile::tempdir()
-            .map_err(|e| AppError::IoError(e))?;
+        let temp_dir = tempfile::tempdir().map_err(AppError::IoError)?;
         let repo_path = temp_dir.path();
 
         // Set up callbacks for authentication
         let mut callbacks = RemoteCallbacks::new();
-        
+
         if let Some(cred) = credential {
             let username = cred.username.clone();
             let password = cred.password.clone();
@@ -72,7 +71,7 @@ impl GitService {
 
         // Create tarball
         let archive_path = self.create_archive(&repo.id, repo_path)?;
-        
+
         info!("Created archive: {:?}", archive_path);
         Ok(archive_path)
     }
@@ -87,17 +86,16 @@ impl GitService {
         let mut tar = Builder::new(enc);
 
         tar.append_dir_all(repo_id, repo_path)
-            .map_err(|e| AppError::IoError(e))?;
-        
-        tar.finish()
-            .map_err(|e| AppError::IoError(e))?;
+            .map_err(AppError::IoError)?;
+
+        tar.finish().map_err(AppError::IoError)?;
 
         Ok(archive_path)
     }
 
     pub fn list_archives(&self) -> Result<Vec<String>, AppError> {
         let mut archives = Vec::new();
-        
+
         for entry in fs::read_dir(&self.archive_dir)? {
             let entry = entry?;
             if let Some(name) = entry.file_name().to_str() {

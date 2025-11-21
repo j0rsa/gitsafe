@@ -24,8 +24,8 @@ pub async fn setup_scheduler(
             info!("Starting scheduled sync");
 
             let cfg = config.read().await;
-            let repositories = cfg.repositories.clone();
             let credentials = cfg.credentials.clone();
+            let repositories = cfg.repositories.clone();
             drop(cfg); // Release the lock
 
             for repo in repositories.iter().filter(|r| r.enabled) {

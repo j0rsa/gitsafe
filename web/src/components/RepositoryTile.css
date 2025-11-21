@@ -1,0 +1,150 @@
+.repository-tile {
+  background: white;
+  border-radius: 8px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: box-shadow 0.2s, transform 0.2s;
+  border-left: 4px solid #6366f1;
+}
+
+.repository-tile:hover {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
+}
+
+.repository-tile.disabled {
+  opacity: 0.7;
+  border-left-color: #9ca3af;
+}
+
+.repository-tile-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+.repository-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.repository-id {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #111827;
+  margin: 0 0 0.5rem 0;
+  word-break: break-word;
+}
+
+.repository-url {
+  font-size: 0.875rem;
+  color: #6366f1;
+  text-decoration: none;
+  word-break: break-all;
+  display: block;
+}
+
+.repository-url:hover {
+  text-decoration: underline;
+}
+
+.repository-status {
+  margin-left: 1rem;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.status-badge.active {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.status-badge.inactive {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.repository-tile-body {
+  margin-bottom: 1rem;
+}
+
+.repository-meta {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.meta-label {
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.meta-value {
+  color: #111827;
+}
+
+.repository-error {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: #fef2f2;
+  border-left: 3px solid #ef4444;
+  border-radius: 4px;
+  margin-top: 0.5rem;
+}
+
+.error-icon {
+  font-size: 1.25rem;
+}
+
+.error-message {
+  color: #991b1b;
+  font-size: 0.875rem;
+  flex: 1;
+}
+
+.repository-tile-actions {
+  display: flex;
+  gap: 0.75rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.action-btn {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.sync-btn {
+  background: #6366f1;
+  color: white;
+}
+
+.sync-btn:hover {
+  background: #4f46e5;
+}
+
+.delete-btn {
+  background: #ef4444;
+  color: white;
+}
+
+.delete-btn:hover {
+  background: #dc2626;
+}
+

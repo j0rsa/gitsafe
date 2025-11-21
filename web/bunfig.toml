@@ -1,0 +1,13 @@
+# Bun configuration file
+# https://bun.sh/docs/cli/bunfig
+
+[install]
+# Use exact versions for reproducible builds
+exact = false
+
+# Auto-install peer dependencies
+peer = true
+
+# Don't save lockfile (optional - uncomment if you want to disable lockfile)
+# lockfile = false
+

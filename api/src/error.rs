@@ -59,8 +59,14 @@ impl From<git2::Error> for AppError {
     }
 }
 
-impl From<serde_yaml::Error> for AppError {
-    fn from(err: serde_yaml::Error) -> Self {
+impl From<serde_yaml_ng::Error> for AppError {
+    fn from(err: serde_yaml_ng::Error) -> Self {
+        AppError::ConfigError(err.to_string())
+    }
+}
+
+impl From<config::ConfigError> for AppError {
+    fn from(err: config::ConfigError) -> Self {
         AppError::ConfigError(err.to_string())
     }
 }

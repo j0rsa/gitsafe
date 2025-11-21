@@ -257,7 +257,7 @@ archives/
 - **git2**: Git operations
 - **auth-git2**: Git authentication helpers
 - **tokio-cron-scheduler**: Scheduled task execution
-- **serde_yaml**: YAML configuration parsing
+- **serde_yaml_ng**: YAML configuration parsing (maintained fork of serde_yaml)
 - **jsonwebtoken**: JWT authentication
 - **bcrypt**: Password hashing
 - **tar & flate2**: Archive creation

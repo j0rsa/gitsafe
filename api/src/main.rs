@@ -3,10 +3,12 @@ pub mod config;
 pub mod error;
 pub mod git;
 pub mod handlers;
+pub mod middleware;
 mod scheduler;
 
 use crate::config::Config;
 use crate::handlers::AppState;
+use crate::middleware::AuthMiddleware;
 use actix_web::{web, App, HttpServer};
 use log::info;
 use std::fs;
@@ -60,29 +62,20 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(move || {
         App::new()
             .app_data(app_state.clone())
+            // Public routes (no authentication required)
             .route("/health", web::get().to(handlers::health_check))
             .route("/api/login", web::post().to(handlers::login))
-            .route(
-                "/api/repositories",
-                web::get().to(handlers::list_repositories),
-            )
-            .route(
-                "/api/repositories",
-                web::post().to(handlers::add_repository),
-            )
-            .route(
-                "/api/repositories/{id}",
-                web::delete().to(handlers::delete_repository),
-            )
-            .route("/api/sync", web::post().to(handlers::sync_repository))
-            .route(
-                "/api/credentials",
-                web::get().to(handlers::list_credentials),
-            )
-            .route("/api/credentials", web::post().to(handlers::add_credential))
-            .route(
-                "/api/credentials/{id}",
-                web::delete().to(handlers::delete_credential),
+            // Protected routes (authentication required)
+            .service(
+                web::scope("/api")
+                    .wrap(AuthMiddleware)
+                    .route("/repositories", web::get().to(handlers::list_repositories))
+                    .route("/repositories", web::post().to(handlers::add_repository))
+                    .route("/repositories/{id}", web::delete().to(handlers::delete_repository))
+                    .route("/sync", web::post().to(handlers::sync_repository))
+                    .route("/credentials", web::get().to(handlers::list_credentials))
+                    .route("/credentials", web::post().to(handlers::add_credential))
+                    .route("/credentials/{id}", web::delete().to(handlers::delete_credential))
             )
     })
     .bind((host, port))?

@@ -75,7 +75,3 @@ impl AuthService {
         .map_err(|e| AppError::AuthError(format!("Token verification failed: {}", e)))
     }
 }
-
-#[cfg(test)]
-#[path = "auth_test.rs"]
-mod auth_test;

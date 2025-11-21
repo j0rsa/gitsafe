@@ -2,6 +2,7 @@ use crate::auth::AuthService;
 use crate::config::{Config, Credential, Repository};
 use crate::error::AppError;
 use crate::git::GitService;
+use crate::middleware::AuthenticatedUser;
 use actix_web::{web, HttpRequest, HttpResponse};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -39,6 +40,10 @@ pub struct RepositoryResponse {
     pub url: String,
     pub credential_id: Option<String>,
     pub enabled: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_sync: Option<chrono::DateTime<chrono::Utc>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -59,27 +64,13 @@ pub struct SyncRequest {
     pub repository_id: String,
 }
 
-// Middleware to extract JWT token
-pub async fn authenticate(
-    req: HttpRequest,
-    state: web::Data<AppState>,
-) -> Result<String, AppError> {
-    let auth_header = req
-        .headers()
-        .get("Authorization")
-        .ok_or_else(|| AppError::AuthError("Missing Authorization header".to_string()))?
-        .to_str()
-        .map_err(|_| AppError::AuthError("Invalid Authorization header".to_string()))?;
-
-    if !auth_header.starts_with("Bearer ") {
-        return Err(AppError::AuthError(
-            "Invalid Authorization format".to_string(),
-        ));
-    }
-
-    let token = &auth_header[7..];
-    let claims = state.auth_service.verify_token(token)?;
-    Ok(claims.sub)
+// Helper function to extract authenticated user from request extensions
+// This is only needed if handlers need to access the username
+pub fn get_authenticated_user(req: &HttpRequest) -> Result<String, AppError> {
+    req.extensions()
+        .get::<AuthenticatedUser>()
+        .map(|user| user.0.clone())
+        .ok_or_else(|| AppError::AuthError("User not authenticated".to_string()))
 }
 
 // Handlers
@@ -95,14 +86,27 @@ pub async fn login(
     Ok(HttpResponse::Ok().json(LoginResponse { token }))
 }
 
+#[derive(Debug, Deserialize)]
+pub struct SearchRepositoriesQuery {
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub url: Option<String>,
+    #[serde(default)]
+    pub has_error: Option<bool>,
+}
+
 pub async fn list_repositories(
-    req: HttpRequest,
+    query: web::Query<SearchRepositoriesQuery>,
     state: web::Data<AppState>,
 ) -> Result<HttpResponse, AppError> {
+<<<<<<< Updated upstream
     authenticate(req, state.clone()).await?;
 
+=======
+>>>>>>> Stashed changes
     let config = state.config.read().await;
-    let repositories: Vec<RepositoryResponse> = config
+    let mut repositories: Vec<RepositoryResponse> = config
         .repositories
         .iter()
         .map(|r| RepositoryResponse {
@@ -110,19 +114,41 @@ pub async fn list_repositories(
             url: r.url.clone(),
             credential_id: r.credential_id.clone(),
             enabled: r.enabled,
+            last_sync: r.last_sync,
+            error: r.error.clone(),
         })
         .collect();
+
+    // Apply filters
+    if let Some(name_filter) = &query.name {
+        if !name_filter.is_empty() {
+            repositories.retain(|r| r.id.contains(name_filter) || r.url.contains(name_filter));
+        }
+    }
+
+    if let Some(url_filter) = &query.url {
+        if !url_filter.is_empty() {
+            repositories.retain(|r| r.url.contains(url_filter));
+        }
+    }
+
+    if let Some(has_error_filter) = query.has_error {
+        repositories.retain(|r| {
+            if has_error_filter {
+                r.error.is_some()
+            } else {
+                r.error.is_none()
+            }
+        });
+    }
 
     Ok(HttpResponse::Ok().json(repositories))
 }
 
 pub async fn add_repository(
-    req: HttpRequest,
     data: web::Json<AddRepositoryRequest>,
     state: web::Data<AppState>,
 ) -> Result<HttpResponse, AppError> {
-    authenticate(req, state.clone()).await?;
-
     let mut config = state.config.write().await;
 
     let repository = Repository {
@@ -130,6 +156,8 @@ pub async fn add_repository(
         url: data.url.clone(),
         credential_id: data.credential_id.clone(),
         enabled: true,
+        last_sync: None,
+        error: None,
     };
 
     let response = RepositoryResponse {
@@ -137,6 +165,8 @@ pub async fn add_repository(
         url: repository.url.clone(),
         credential_id: repository.credential_id.clone(),
         enabled: repository.enabled,
+        last_sync: repository.last_sync,
+        error: repository.error.clone(),
     };
 
     config.repositories.push(repository);
@@ -148,12 +178,9 @@ pub async fn add_repository(
 }
 
 pub async fn delete_repository(
-    req: HttpRequest,
     path: web::Path<String>,
     state: web::Data<AppState>,
 ) -> Result<HttpResponse, AppError> {
-    authenticate(req, state.clone()).await?;
-
     let repo_id = path.into_inner();
     let mut config = state.config.write().await;
 
@@ -175,12 +202,9 @@ pub async fn delete_repository(
 }
 
 pub async fn sync_repository(
-    req: HttpRequest,
     data: web::Json<SyncRequest>,
     state: web::Data<AppState>,
 ) -> Result<HttpResponse, AppError> {
-    authenticate(req, state.clone()).await?;
-
     let config = state.config.read().await;
 
     let repository = config
@@ -207,11 +231,13 @@ pub async fn sync_repository(
 }
 
 pub async fn list_credentials(
-    req: HttpRequest,
     state: web::Data<AppState>,
 ) -> Result<HttpResponse, AppError> {
+<<<<<<< Updated upstream
     authenticate(req, state.clone()).await?;
 
+=======
+>>>>>>> Stashed changes
     let config = state.config.read().await;
     let credentials: Vec<CredentialResponse> = config
         .credentials
@@ -226,12 +252,9 @@ pub async fn list_credentials(
 }
 
 pub async fn add_credential(
-    req: HttpRequest,
     data: web::Json<AddCredentialRequest>,
     state: web::Data<AppState>,
 ) -> Result<HttpResponse, AppError> {
-    authenticate(req, state.clone()).await?;
-
     let mut config = state.config.write().await;
 
     let credential = Credential {
@@ -255,12 +278,9 @@ pub async fn add_credential(
 }
 
 pub async fn delete_credential(
-    req: HttpRequest,
     path: web::Path<String>,
     state: web::Data<AppState>,
 ) -> Result<HttpResponse, AppError> {
-    authenticate(req, state.clone()).await?;
-
     let cred_id = path.into_inner();
     let mut config = state.config.write().await;
 

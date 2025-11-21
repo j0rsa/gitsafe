@@ -24,6 +24,7 @@ jobs:
           components: rustfmt, clippy
       
       - name: Check formatting
+        working-directory: api
         run: cargo fmt -- --check
       
       - name: Cache cargo registry
@@ -45,12 +46,13 @@ jobs:
       - name: Cache cargo build
         uses: actions/cache@v4
         with:
-          path: target
-          key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
+          path: api/target
+          key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('api/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-cargo-build-target-
       
       - name: Run clippy
+        working-directory: api
         run: cargo clippy -- -D warnings
 
   build:
@@ -82,12 +84,13 @@ jobs:
       - name: Cache cargo build
         uses: actions/cache@v4
         with:
-          path: target
-          key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
+          path: api/target
+          key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('api/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-cargo-build-target-
       
       - name: Build
+        working-directory: api
         run: cargo build --release --verbose
 
   test:
@@ -119,12 +122,13 @@ jobs:
       - name: Cache cargo build
         uses: actions/cache@v4
         with:
-          path: target
-          key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
+          path: api/target
+          key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('api/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-cargo-build-target-
       
       - name: Run tests
+        working-directory: api
         run: cargo test --verbose
 
   audit:
@@ -140,6 +144,7 @@ jobs:
         run: cargo install cargo-audit
       
       - name: Run cargo audit
+        working-directory: api
         run: cargo audit
 
   build-binary:
@@ -192,19 +197,20 @@ jobs:
       - name: Cache cargo build
         uses: actions/cache@v4
         with:
-          path: target
-          key: ${{ runner.os }}-${{ matrix.arch }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
+          path: api/target
+          key: ${{ runner.os }}-${{ matrix.arch }}-cargo-build-${{ hashFiles('api/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-${{ matrix.arch }}-cargo-build-
       
       - name: Build binary
+        working-directory: api
         run: cross build --release --target ${{ matrix.target }}
       
       - name: Upload binary artifact
         uses: actions/upload-artifact@v4
         with:
           name: gitsafe-${{ matrix.arch }}
-          path: target/${{ matrix.target }}/release/gitsafe
+          path: api/target/${{ matrix.target }}/release/gitsafe
           retention-days: 1
 
   docker-build:
@@ -256,7 +262,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: Dockerfile.prebuilt
+          file: api/Dockerfile.prebuilt
           platforms: ${{ matrix.platform }}
           push: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') }}
           tags: ${{ steps.meta.outputs.tags }}

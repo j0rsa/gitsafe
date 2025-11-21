@@ -79,6 +79,23 @@ cargo run --release
 
 The server will start on the configured host and port (default: `http://127.0.0.1:8080`).
 
+### Quick Demo
+
+A demo script is included to showcase the API functionality:
+
+```bash
+./demo.sh
+```
+
+This script will:
+1. Check server health
+2. Login with default credentials
+3. Create a credential
+4. Add a public repository
+5. List all repositories and credentials
+
+**Note**: Make sure the server is running and you have `jq` installed before running the demo.
+
 ### API Endpoints
 
 #### Authentication

@@ -280,7 +280,7 @@ Docker images are:
 
 Images pushed to GitHub Container Registry are tagged with:
 - `main` or `master`: Branch reference tag
-- `main-<sha>` or `master-<sha>`: Branch with commit SHA
+- `sha-<commit>`: Commit SHA tag
 
 To run the Docker image from main:
 

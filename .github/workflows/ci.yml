@@ -160,14 +160,9 @@ jobs:
       
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.target }}
       
-      - name: Install cross-compilation dependencies
-        if: matrix.arch == 'arm64'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu
+      - name: Install cross
+        run: cargo install cross --git https://github.com/cross-rs/cross
       
       - name: Cache cargo registry
         uses: actions/cache@v4
@@ -194,9 +189,7 @@ jobs:
             ${{ runner.os }}-${{ matrix.arch }}-cargo-build-
       
       - name: Build binary
-        env:
-          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
-        run: cargo build --release --target ${{ matrix.target }}
+        run: cross build --release --target ${{ matrix.target }}
       
       - name: Upload binary artifact
         uses: actions/upload-artifact@v4

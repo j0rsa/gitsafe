@@ -23,3 +23,6 @@ env_logger = "0.11"
 thiserror = "2.0"
 tokio-cron-scheduler = "0.13"
 tempfile = "3.13"
+
+[dev-dependencies]
+actix-rt = "2.10"

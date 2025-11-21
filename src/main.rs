@@ -1,8 +1,8 @@
-mod auth;
-mod config;
-mod error;
-mod git;
-mod handlers;
+pub mod auth;
+pub mod config;
+pub mod error;
+pub mod git;
+pub mod handlers;
 mod scheduler;
 
 use crate::config::Config;

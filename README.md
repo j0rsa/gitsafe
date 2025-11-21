@@ -1,6 +1,10 @@
-# gitsafe
+# Gitsafe
+
+![](doc/logo.png)
 
 A Rust application designed to fetch Git repositories on a schedule and keep each repository in a separate tarball archive.
+
+Keep your Git repositories safe and backed up with ease!
 
 ## Features
 

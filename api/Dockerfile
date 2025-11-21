@@ -17,6 +17,7 @@ COPY Cargo.toml Cargo.lock ./
 # Copy source code
 COPY src ./src
 COPY tests ./tests
+COPY config.yaml.example ./
 
 # Build release binary
 RUN cargo build --release

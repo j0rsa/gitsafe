@@ -240,6 +240,37 @@ archives/
 - **bcrypt**: Password hashing
 - **tar & flate2**: Archive creation
 
+## CI/CD Pipeline
+
+This project uses GitHub Actions for continuous integration and deployment:
+
+- **Lint**: Runs `cargo fmt` and `cargo clippy` on every PR
+- **Build**: Compiles the project in release mode
+- **Test**: Runs all unit and integration tests
+- **Security Audit**: Checks dependencies for known vulnerabilities using `cargo audit`
+- **Docker**: Builds and pushes Docker images to `j0rsa/gitsafe` for each PR
+
+### Docker Images
+
+Docker images are automatically built for each pull request and tagged with:
+- `pr-<number>`: PR reference tag
+- `pr-<number>-<sha>`: PR with commit SHA
+
+To run the Docker image:
+
+```bash
+docker run -d -p 8080:8080 \
+  -v $(pwd)/config.yaml:/app/config.yaml \
+  -v $(pwd)/archives:/app/archives \
+  j0rsa/gitsafe:pr-<number>
+```
+
+### Required Secrets
+
+For the CI pipeline to work, the following secrets must be configured in the repository settings:
+- `DOCKER_USERNAME`: Docker Hub username
+- `DOCKER_PASSWORD`: Docker Hub password or access token
+
 ## License
 
 See [LICENSE](LICENSE) file for details.

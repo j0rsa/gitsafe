@@ -270,21 +270,25 @@ This project uses GitHub Actions for continuous integration and deployment:
 - **Build**: Compiles the project in release mode
 - **Test**: Runs all unit and integration tests
 - **Security Audit**: Checks dependencies for known vulnerabilities using `cargo audit`
-- **Docker**: Builds and pushes Docker images to GitHub Container Registry (`ghcr.io`) for each PR
+- **Docker**: Builds Docker images on every PR (to verify correctness) and pushes to GitHub Container Registry (`ghcr.io`) on main branch
 
 ### Docker Images
 
-Docker images are automatically built for each pull request and pushed to GitHub Container Registry, tagged with:
-- `pr-<number>`: PR reference tag
-- `pr-<number>-<sha>`: PR with commit SHA
+Docker images are:
+- **Built on PRs**: Verified for correctness but not pushed to the registry
+- **Built and pushed on main branch**: Tagged with branch name and commit SHA
 
-To run the Docker image:
+Images pushed to GitHub Container Registry are tagged with:
+- `main` or `master`: Branch reference tag
+- `main-<sha>` or `master-<sha>`: Branch with commit SHA
+
+To run the Docker image from main:
 
 ```bash
 docker run -d -p 8080:8080 \
   -v $(pwd)/config.yaml:/app/config.yaml \
   -v $(pwd)/archives:/app/archives \
-  ghcr.io/j0rsa/gitsafe:pr-<number>
+  ghcr.io/j0rsa/gitsafe:main
 ```
 
 ### Required Secrets

@@ -55,8 +55,7 @@ async fn main() -> std::io::Result<()> {
         config: Arc::clone(&config),
         config_path: CONFIG_PATH.to_string(),
         auth_service,
-        git_service: Arc::try_unwrap(git_service_arc)
-            .unwrap_or_else(|arc| (*arc).clone()),
+        git_service: (*git_service_arc).clone(),
     });
 
     HttpServer::new(move || {

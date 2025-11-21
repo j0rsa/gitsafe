@@ -31,8 +31,7 @@ async fn main() -> std::io::Result<()> {
     };
 
     // Create archive directory
-    fs::create_dir_all(&config.storage.archive_dir)
-        .expect("Failed to create archive directory");
+    fs::create_dir_all(&config.storage.archive_dir).expect("Failed to create archive directory");
 
     let host = config.server.host.clone();
     let port = config.server.port;
@@ -63,13 +62,28 @@ async fn main() -> std::io::Result<()> {
             .app_data(app_state.clone())
             .route("/health", web::get().to(handlers::health_check))
             .route("/api/login", web::post().to(handlers::login))
-            .route("/api/repositories", web::get().to(handlers::list_repositories))
-            .route("/api/repositories", web::post().to(handlers::add_repository))
-            .route("/api/repositories/{id}", web::delete().to(handlers::delete_repository))
+            .route(
+                "/api/repositories",
+                web::get().to(handlers::list_repositories),
+            )
+            .route(
+                "/api/repositories",
+                web::post().to(handlers::add_repository),
+            )
+            .route(
+                "/api/repositories/{id}",
+                web::delete().to(handlers::delete_repository),
+            )
             .route("/api/sync", web::post().to(handlers::sync_repository))
-            .route("/api/credentials", web::get().to(handlers::list_credentials))
+            .route(
+                "/api/credentials",
+                web::get().to(handlers::list_credentials),
+            )
             .route("/api/credentials", web::post().to(handlers::add_credential))
-            .route("/api/credentials/{id}", web::delete().to(handlers::delete_credential))
+            .route(
+                "/api/credentials/{id}",
+                web::delete().to(handlers::delete_credential),
+            )
     })
     .bind((host, port))?
     .run()

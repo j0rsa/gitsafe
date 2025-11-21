@@ -21,18 +21,18 @@ async fn test_health_check() {
 async fn test_login_success() {
     let temp_dir = TempDir::new().unwrap();
     let config_path = temp_dir.path().join("config.yaml");
-    
+
     let auth_service = AuthService::new("test-secret".to_string());
     let password_hash = auth_service.hash_password("testpass").unwrap();
-    
+
     let mut config = Config::default();
     config.users.push(User {
         username: "testuser".to_string(),
         password_hash,
     });
-    
+
     let git_service = GitService::new(temp_dir.path()).unwrap();
-    
+
     let app_state = web::Data::new(AppState {
         config: Arc::new(RwLock::new(config)),
         config_path: config_path.to_string_lossy().to_string(),
@@ -65,18 +65,18 @@ async fn test_login_success() {
 async fn test_login_failure() {
     let temp_dir = TempDir::new().unwrap();
     let config_path = temp_dir.path().join("config.yaml");
-    
+
     let auth_service = AuthService::new("test-secret".to_string());
     let password_hash = auth_service.hash_password("testpass").unwrap();
-    
+
     let mut config = Config::default();
     config.users.push(User {
         username: "testuser".to_string(),
         password_hash,
     });
-    
+
     let git_service = GitService::new(temp_dir.path()).unwrap();
-    
+
     let app_state = web::Data::new(AppState {
         config: Arc::new(RwLock::new(config)),
         config_path: config_path.to_string_lossy().to_string(),

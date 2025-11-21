@@ -29,6 +29,28 @@ cargo build --release
 
 The binary will be available at `target/release/gitsafe`.
 
+### Setting up pre-commit hooks (optional)
+
+To ensure code quality, you can set up pre-commit hooks that automatically run formatting, checks, and linting before each commit:
+
+```bash
+# Install pre-commit (if not already installed)
+pip install pre-commit
+# or on macOS:
+# brew install pre-commit
+
+# Install the git hooks
+pre-commit install
+
+# (Optional) Run against all files
+pre-commit run --all-files
+```
+
+The pre-commit hooks will automatically run:
+- `cargo fmt` - Format code
+- `cargo check` - Check compilation
+- `cargo clippy` - Lint code
+
 ## Configuration
 
 Create a `config.yaml` file in the same directory as the binary. You can use `config.yaml.example` as a template:
@@ -239,6 +261,47 @@ archives/
 - **jsonwebtoken**: JWT authentication
 - **bcrypt**: Password hashing
 - **tar & flate2**: Archive creation
+
+## CI/CD Pipeline
+
+This project uses GitHub Actions for continuous integration and deployment:
+
+- **Lint**: Runs `cargo fmt` and `cargo clippy` on every PR (formatting is checked first for fast feedback)
+- **Build**: Compiles the project in release mode
+- **Test**: Runs all unit and integration tests
+- **Security Audit**: Checks dependencies for known vulnerabilities using `cargo audit`
+- **Docker**: Uses an optimized multi-stage build process:
+  - **Binary Build**: Compiles binaries for amd64 and arm64 in parallel using matrix builds
+  - **Docker Build**: Creates architecture-specific images using pre-built binaries (fast, no QEMU emulation)
+  - **Manifest Creation**: Combines images into a multi-arch manifest on main branch
+  - Images are built on PRs for verification but only pushed to GitHub Container Registry (`ghcr.io`) on main branch
+
+### Docker Images
+
+Docker images are:
+- **Built on PRs**: Verified for correctness but not pushed to the registry
+- **Built and pushed on main branch**: Tagged with branch name and commit SHA
+- **Multi-architecture**: Supports both `linux/amd64` and `linux/arm64` (aarch64) platforms
+- **Optimized build**: Binaries are built natively for each architecture in parallel for faster CI times
+
+Images pushed to GitHub Container Registry are tagged with:
+- `main` or `master`: Branch reference tag
+- `sha-<commit>`: Commit SHA tag
+
+To run the Docker image from main:
+
+```bash
+docker run -d -p 8080:8080 \
+  -v $(pwd)/config.yaml:/app/config.yaml \
+  -v $(pwd)/archives:/app/archives \
+  ghcr.io/j0rsa/gitsafe:main
+```
+
+Docker will automatically pull the correct image for your platform (amd64 or arm64).
+
+### Required Secrets
+
+The CI pipeline uses the built-in `GITHUB_TOKEN` for pushing Docker images to GitHub Container Registry. No additional secrets need to be configured.
 
 ## License
 

@@ -1,0 +1,14 @@
+repos:
+  - repo: https://github.com/doublify/pre-commit-rust
+    rev: v1.0
+    hooks:
+      - id: fmt
+        name: cargo fmt
+        description: Run cargo fmt on the codebase
+      - id: cargo-check
+        name: cargo check
+        description: Run cargo check on the codebase
+      - id: clippy
+        name: cargo clippy
+        description: Run cargo clippy on the codebase
+        args: ['--all-targets', '--', '-D', 'warnings']

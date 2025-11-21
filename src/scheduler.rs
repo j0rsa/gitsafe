@@ -19,10 +19,10 @@ pub async fn setup_scheduler(
     let job = Job::new_async(cron_expression.as_str(), move |_uuid, _l| {
         let config = Arc::clone(&config);
         let git_service = Arc::clone(&git_service);
-        
+
         Box::pin(async move {
             info!("Starting scheduled sync");
-            
+
             let cfg = config.read().await;
             let repositories = cfg.repositories.clone();
             let credentials = cfg.credentials.clone();
@@ -36,14 +36,17 @@ pub async fn setup_scheduler(
 
                 match git_service.sync_repository(repo, credential) {
                     Ok(archive_path) => {
-                        info!("Successfully synced repository {}: {:?}", repo.id, archive_path);
+                        info!(
+                            "Successfully synced repository {}: {:?}",
+                            repo.id, archive_path
+                        );
                     }
                     Err(e) => {
                         error!("Failed to sync repository {}: {}", repo.id, e);
                     }
                 }
             }
-            
+
             info!("Scheduled sync completed");
         })
     })?;
@@ -51,6 +54,9 @@ pub async fn setup_scheduler(
     scheduler.add(job).await?;
     scheduler.start().await?;
 
-    info!("Scheduler started with cron expression: {}", cron_expression);
+    info!(
+        "Scheduler started with cron expression: {}",
+        cron_expression
+    );
     Ok(scheduler)
 }

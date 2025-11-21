@@ -29,6 +29,28 @@ cargo build --release
 
 The binary will be available at `target/release/gitsafe`.
 
+### Setting up pre-commit hooks (optional)
+
+To ensure code quality, you can set up pre-commit hooks that automatically run formatting, checks, and linting before each commit:
+
+```bash
+# Install pre-commit (if not already installed)
+pip install pre-commit
+# or on macOS:
+# brew install pre-commit
+
+# Install the git hooks
+pre-commit install
+
+# (Optional) Run against all files
+pre-commit run --all-files
+```
+
+The pre-commit hooks will automatically run:
+- `cargo fmt` - Format code
+- `cargo check` - Check compilation
+- `cargo clippy` - Lint code
+
 ## Configuration
 
 Create a `config.yaml` file in the same directory as the binary. You can use `config.yaml.example` as a template:

@@ -161,8 +161,17 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
       
+      - name: Cache cross
+        id: cache-cross
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/cross
+          key: ${{ runner.os }}-cross-0.2.5
+      
       - name: Install cross
-        run: cargo install cross --git https://github.com/cross-rs/cross --tag v0.2.5
+        if: steps.cache-cross.outputs.cache-hit != 'true'
+        run: |
+          cargo install cross --git https://github.com/cross-rs/cross --tag v0.2.5
       
       - name: Cache cargo registry
         uses: actions/cache@v4

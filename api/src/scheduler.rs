@@ -36,14 +36,29 @@ pub async fn setup_scheduler(
                     .and_then(|id| credentials.get(id));
 
                 match git_service.sync_repository(repo, credential, &encryption_key) {
-                    Ok(archive_path) => {
+                    Ok((archive_path, archive_size)) => {
                         info!(
-                            "Successfully synced repository {}: {:?}",
-                            repo.id, archive_path
+                            "Successfully synced repository {}: {:?} ({} bytes)",
+                            repo.id, archive_path, archive_size
                         );
+                        
+                        // Update repository size and last_sync in config
+                        let mut cfg = config.write().await;
+                        if let Some(repo_mut) = cfg.repositories.iter_mut().find(|r| r.id == repo.id) {
+                            repo_mut.size = Some(archive_size);
+                            repo_mut.last_sync = Some(chrono::Utc::now());
+                            repo_mut.error = None;
+                            // Note: We don't save here to avoid blocking the scheduler
+                            // The config will be saved on the next manual operation
+                        }
                     }
                     Err(e) => {
                         error!("Failed to sync repository {}: {}", repo.id, e);
+                        // Update error in config
+                        let mut cfg = config.write().await;
+                        if let Some(repo_mut) = cfg.repositories.iter_mut().find(|r| r.id == repo.id) {
+                            repo_mut.error = Some(e.to_string());
+                        }
                     }
                 }
             }

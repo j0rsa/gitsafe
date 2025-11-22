@@ -13,6 +13,9 @@ server:
 
 storage:
   archive_dir: "./archives"
+  # If true, repositories are stored as compressed tarballs (.tar.gz)
+  # If false, repositories are stored as regular folders
+  compact: true
 
 scheduler:
   # Cron expression: "sec min hour day_of_month month day_of_week"

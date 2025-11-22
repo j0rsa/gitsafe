@@ -25,6 +25,10 @@
   border-left-color: #8b5cf6;
 }
 
+.stat-card-size {
+  border-left-color: #f59e0b;
+}
+
 .stat-label {
   font-size: 0.875rem;
   color: #6b7280;
@@ -105,6 +109,10 @@
 
   .stat-card-credentials .stat-value {
     color: #8b5cf6;
+  }
+
+  .stat-card-size .stat-value {
+    color: #f59e0b;
   }
 }
 

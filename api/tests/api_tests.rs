@@ -31,7 +31,7 @@ async fn test_login_success() {
         password_hash,
     });
 
-    let git_service = GitService::new(temp_dir.path()).unwrap();
+    let git_service = GitService::new(temp_dir.path(), true).unwrap();
 
     let app_state = web::Data::new(AppState {
         config: Arc::new(RwLock::new(config)),
@@ -75,7 +75,7 @@ async fn test_login_failure() {
         password_hash,
     });
 
-    let git_service = GitService::new(temp_dir.path()).unwrap();
+    let git_service = GitService::new(temp_dir.path(), true).unwrap();
 
     let app_state = web::Data::new(AppState {
         config: Arc::new(RwLock::new(config)),

@@ -51,6 +51,8 @@ pub struct RepositoryResponse {
     pub last_sync: Option<chrono::DateTime<chrono::Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub size: Option<u64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -118,6 +120,7 @@ pub async fn list_repositories(
             enabled: r.enabled,
             last_sync: r.last_sync,
             error: r.error.clone(),
+            size: r.size,
         })
         .collect();
 
@@ -160,6 +163,7 @@ pub async fn add_repository(
         enabled: true,
         last_sync: None,
         error: None,
+        size: None,
     };
 
     let response = RepositoryResponse {
@@ -169,6 +173,7 @@ pub async fn add_repository(
         enabled: repository.enabled,
         last_sync: repository.last_sync,
         error: repository.error.clone(),
+        size: repository.size,
     };
 
     config.repositories.push(repository);
@@ -216,6 +221,7 @@ pub async fn update_repository(
         enabled: repository.enabled,
         last_sync: repository.last_sync,
         error: repository.error.clone(),
+        size: repository.size,
     };
 
     config
@@ -270,15 +276,27 @@ pub async fn sync_repository(
         .as_ref()
         .and_then(|id| config.credentials.get(id));
 
-    let archive_path = state.git_service.sync_repository(
+    let (archive_path, archive_size) = state.git_service.sync_repository(
         repository,
         credential,
         &config.server.encryption_key,
     )?;
 
+    // Update repository size and last_sync
+    let mut config = state.config.write().await;
+    if let Some(repo) = config.repositories.iter_mut().find(|r| r.id == data.repository_id) {
+        repo.size = Some(archive_size);
+        repo.last_sync = Some(chrono::Utc::now());
+        repo.error = None;
+        config
+            .save(&state.config_path)
+            .map_err(|e| AppError::ConfigError(e.to_string()))?;
+    }
+
     Ok(HttpResponse::Ok().json(serde_json::json!({
         "message": "Repository synced successfully",
-        "archive": archive_path.to_string_lossy()
+        "path": archive_path.to_string_lossy(),
+        "size": archive_size
     })))
 }
 
@@ -321,6 +339,8 @@ pub async fn add_credential(
         } else if key.starts_with("-----BEGIN") || key.contains('\n') {
             // It's plaintext SSH key content - encrypt it
             Some(encryption::encrypt_ssh_key(key, &config.server.encryption_key)?)
+        } else {
+            None
         }
     } else {
         None
@@ -386,6 +406,8 @@ pub async fn update_credential(
         if key.starts_with("-----BEGIN") || key.contains('\n') {
             // It's plaintext SSH key content - encrypt it
             Some(encryption::encrypt_ssh_key(key, &encryption_key)?)
+        } else {
+            None
         }
     } else if has_password {
         // Password is provided but SSH key is not - delete SSH key

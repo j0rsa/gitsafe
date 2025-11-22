@@ -40,10 +40,11 @@ async fn main() -> std::io::Result<()> {
     let port = config.server.port;
     let jwt_secret = config.server.jwt_secret.clone();
     let archive_dir = config.storage.archive_dir.clone();
+    let compact = config.storage.compact;
 
     let config = Arc::new(RwLock::new(config));
     let auth_service = auth::AuthService::new(jwt_secret);
-    let git_service = git::GitService::new(&archive_dir).expect("Failed to create git service");
+    let git_service = git::GitService::new(&archive_dir, compact).expect("Failed to create git service");
     let git_service_arc = Arc::new(git_service);
 
     // Setup scheduler

@@ -31,6 +31,12 @@ fn default_encryption_key() -> String {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct StorageConfig {
     pub archive_dir: String,
+    #[serde(default = "default_compact")]
+    pub compact: bool,
+}
+
+fn default_compact() -> bool {
+    true
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -49,6 +55,8 @@ pub struct Repository {
     pub last_sync: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub size: Option<u64>, // Size in bytes
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -116,6 +124,7 @@ impl Default for Config {
             },
             storage: StorageConfig {
                 archive_dir: "./archives".to_string(),
+                compact: true,
             },
             scheduler: SchedulerConfig {
                 cron_expression: "0 0 * * * *".to_string(), // Every hour

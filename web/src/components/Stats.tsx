@@ -1,4 +1,5 @@
 import React from 'react'
+import { formatBytes } from '../utils'
 import './Stats.css'
 
 export interface StatsProps {
@@ -6,6 +7,7 @@ export interface StatsProps {
   activeRepositories: number
   inactiveRepositories: number
   totalCredentials: number
+  totalSize: number
 }
 
 export const Stats: React.FC<StatsProps> = ({
@@ -13,6 +15,7 @@ export const Stats: React.FC<StatsProps> = ({
   activeRepositories,
   inactiveRepositories,
   totalCredentials,
+  totalSize,
 }) => {
   return (
     <div className="stats-container">
@@ -31,6 +34,10 @@ export const Stats: React.FC<StatsProps> = ({
       <div className="stat-card stat-card-credentials">
         <div className="stat-label">Credentials</div>
         <div className="stat-value">{totalCredentials}</div>
+      </div>
+      <div className="stat-card stat-card-size">
+        <div className="stat-label">Total Archive Size</div>
+        <div className="stat-value">{formatBytes(totalSize)}</div>
       </div>
     </div>
   )

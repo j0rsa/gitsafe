@@ -5,6 +5,7 @@ export interface Repository {
   enabled: boolean
   last_sync: string | null
   error: string | null
+  size: number | null
 }
 
 export interface Credential {
@@ -39,6 +40,7 @@ export interface Stats {
   activeRepositories: number
   inactiveRepositories: number
   totalCredentials: number
+  totalSize: number
 }
 
 export type TileLayout = 'wide' | 'square'

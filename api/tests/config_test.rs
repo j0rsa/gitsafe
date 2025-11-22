@@ -24,6 +24,7 @@ fn test_config_serialization() {
     
     // Add a repository
     config.repositories.push(Repository {
+        size: None,
         id: "repo1".to_string(),
         url: "https://github.com/test/repo.git".to_string(),
         credential_id: None,
@@ -57,6 +58,7 @@ fn test_config_serialization() {
 #[test]
 fn test_repository_creation() {
     let repo = Repository {
+        size: None,
         id: "test-id".to_string(),
         url: "https://github.com/test/repo.git".to_string(),
         credential_id: Some("cred-id".to_string()),
@@ -94,6 +96,7 @@ fn test_config_save_and_load() {
     let mut config = Config::default();
     config.server.port = 9090;
     config.repositories.push(Repository {
+        size: None,
         id: "repo1".to_string(),
         url: "https://example.com/repo.git".to_string(),
         credential_id: None,

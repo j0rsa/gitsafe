@@ -7,12 +7,16 @@ export interface FilterPanelProps {
   onFilterChange: (filters: SearchFilters) => void
   nameSuggestions?: string[]
   urlSuggestions?: string[]
+  inactiveCount?: number
+  erroredCount?: number
 }
 
 export const FilterPanel: React.FC<FilterPanelProps> = ({
   onFilterChange,
   nameSuggestions = [],
   urlSuggestions = [],
+  inactiveCount = 0,
+  erroredCount = 0,
 }) => {
   const [nameFilter, setNameFilter] = useState('')
   const [urlFilter, setUrlFilter] = useState('')
@@ -99,52 +103,58 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
             maxSuggestions={10}
           />
         </div>
-        <div className="filter-group">
-          <label>Error State</label>
-          <div className="filter-button-group">
-            <button
-              className={`filter-button-all ${errorFilter === undefined ? 'active' : ''}`}
-              onClick={() => handleErrorFilterChange(undefined)}
-            >
-              All
-            </button>
-            <button
-              className={`filter-button-error ${errorFilter === true ? 'active' : ''}`}
-              onClick={() => handleErrorFilterChange(true)}
-            >
-              With Errors
-            </button>
-            <button
-              className={`filter-button-success ${errorFilter === false ? 'active' : ''}`}
-              onClick={() => handleErrorFilterChange(false)}
-            >
-              No Errors
-            </button>
+        {erroredCount > 0 && (
+          <div className="filter-group">
+            <label>Error State</label>
+            <div className="filter-button-group">
+              <button
+                className={`filter-button-all ${errorFilter === undefined ? 'active' : ''}`}
+                onClick={() => handleErrorFilterChange(undefined)}
+              >
+                All
+              </button>
+              <button
+                className={`filter-button-error ${errorFilter === true ? 'active' : ''}`}
+                onClick={() => handleErrorFilterChange(true)}
+              >
+                <span>With Errors</span>
+                <span className="filter-count">({erroredCount})</span>
+              </button>
+              <button
+                className={`filter-button-success ${errorFilter === false ? 'active' : ''}`}
+                onClick={() => handleErrorFilterChange(false)}
+              >
+                No Errors
+              </button>
+            </div>
           </div>
-        </div>
-        <div className="filter-group">
-          <label>Status</label>
-          <div className="filter-button-group">
-            <button
-              className={`filter-button-all ${enabledFilter === undefined ? 'active' : ''}`}
-              onClick={() => handleEnabledFilterChange(undefined)}
-            >
-              All
-            </button>
-            <button
-              className={`filter-button-success ${enabledFilter === true ? 'active' : ''}`}
-              onClick={() => handleEnabledFilterChange(true)}
-            >
-              Active
-            </button>
-            <button
-              className={`filter-button-error ${enabledFilter === false ? 'active' : ''}`}
-              onClick={() => handleEnabledFilterChange(false)}
-            >
-              Inactive
-            </button>
+        )}
+        {inactiveCount > 0 && (
+          <div className="filter-group">
+            <label>Status</label>
+            <div className="filter-button-group">
+              <button
+                className={`filter-button-all ${enabledFilter === undefined ? 'active' : ''}`}
+                onClick={() => handleEnabledFilterChange(undefined)}
+              >
+                All
+              </button>
+              <button
+                className={`filter-button-success ${enabledFilter === true ? 'active' : ''}`}
+                onClick={() => handleEnabledFilterChange(true)}
+              >
+                Active
+              </button>
+              <button
+                className={`filter-button-error ${enabledFilter === false ? 'active' : ''}`}
+                onClick={() => handleEnabledFilterChange(false)}
+              >
+                <span>Inactive</span>
+                <span className="filter-count">({inactiveCount})</span>
+              </button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   )

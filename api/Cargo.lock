@@ -1153,6 +1153,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tokio-cron-scheduler",
+ "url",
  "uuid",
 ]
 

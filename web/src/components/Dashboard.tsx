@@ -180,12 +180,19 @@ export const Dashboard: React.FC = () => {
     })
   }, [allRepositories, filters])
 
-  const stats: Stats = {
-    totalRepositories: allRepositories.length,
-    activeRepositories: allRepositories.filter((r) => r.enabled).length,
-    inactiveRepositories: allRepositories.filter((r) => !r.enabled).length,
-    totalCredentials: credentials.length,
-  }
+  const stats: Stats = useMemo(() => {
+    const totalSize = allRepositories.reduce((sum, repo) => {
+      return sum + (repo.size || 0)
+    }, 0)
+
+    return {
+      totalRepositories: allRepositories.length,
+      activeRepositories: allRepositories.filter((r) => r.enabled).length,
+      inactiveRepositories: allRepositories.filter((r) => !r.enabled).length,
+      totalCredentials: credentials.length,
+      totalSize,
+    }
+  }, [allRepositories, credentials.length])
 
   const handleSync = async (id: string) => {
     try {
@@ -282,6 +289,8 @@ export const Dashboard: React.FC = () => {
           onFilterChange={setFilters}
           nameSuggestions={nameSuggestions}
           urlSuggestions={urlSuggestions}
+          inactiveCount={allRepositories.filter((r) => !r.enabled).length}
+          erroredCount={allRepositories.filter((r) => r.error !== null).length}
         />
         <div className="dashboard-controls">
           <div className="dashboard-controls-left">

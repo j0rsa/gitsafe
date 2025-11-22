@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import type { Repository, TileLayout } from '../types'
+import { formatBytes, formatRelativeTime } from '../utils'
 import './RepositoryTile.css'
 
 export interface RepositoryTileProps {
@@ -23,15 +24,6 @@ export const RepositoryTile: React.FC<RepositoryTileProps> = ({
   const badgeRef = useRef<HTMLSpanElement>(null)
   const touchStartRef = useRef<{ x: number; y: number } | null>(null)
 
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return 'Never'
-    try {
-      const date = new Date(dateString)
-      return date.toLocaleString()
-    } catch {
-      return 'Invalid date'
-    }
-  }
 
   // Handle touch start on badge (mobile)
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -133,9 +125,15 @@ export const RepositoryTile: React.FC<RepositoryTileProps> = ({
             <span className="meta-value">{repository.credential_id}</span>
           </div>
         )}
+        {repository.size !== null && repository.size !== undefined && (
+          <div className="repository-meta">
+            <span className="meta-label">Size:</span>
+            <span className="meta-value size-badge">{formatBytes(repository.size)}</span>
+          </div>
+        )}
         <div className="repository-meta">
           <span className="meta-label">Last Sync:</span>
-          <span className="meta-value">{formatDate(repository.last_sync)}</span>
+          <span className="meta-value">{formatRelativeTime(repository.last_sync)}</span>
         </div>
       </div>
 

@@ -32,6 +32,7 @@ const sampleRepository: Repository = {
   enabled: true,
   last_sync: new Date().toISOString(),
   error: null,
+  size: 1024 * 1024 * 50, // 50 MB
 }
 
 export const Default: Story = {

@@ -207,6 +207,15 @@
   color: #111827;
 }
 
+.size-badge {
+  display: inline-block;
+  padding: 0.125rem 0.5rem;
+  background: #f3f4f6;
+  border-radius: 4px;
+  font-weight: 500;
+  font-size: 0.8125rem;
+}
+
 
 .repository-tile-actions {
   display: flex;

@@ -24,6 +24,7 @@ const sampleRepositories: Repository[] = [
     enabled: true,
     last_sync: new Date(Date.now() - 3600000).toISOString(),
     error: null,
+    size: 1024 * 1024 * 50, // 50 MB
   },
   {
     id: 'repo-2',
@@ -32,6 +33,7 @@ const sampleRepositories: Repository[] = [
     enabled: true,
     last_sync: new Date(Date.now() - 7200000).toISOString(),
     error: null,
+    size: 1024 * 1024 * 100, // 100 MB
   },
   {
     id: 'repo-3',
@@ -40,6 +42,7 @@ const sampleRepositories: Repository[] = [
     enabled: false,
     last_sync: new Date(Date.now() - 86400000).toISOString(),
     error: null,
+    size: null,
   },
   {
     id: 'repo-4',
@@ -48,6 +51,7 @@ const sampleRepositories: Repository[] = [
     enabled: true,
     last_sync: new Date(Date.now() - 10800000).toISOString(),
     error: 'Failed to sync: Connection timeout',
+    size: null,
   },
   {
     id: 'repo-5',
@@ -56,6 +60,7 @@ const sampleRepositories: Repository[] = [
     enabled: true,
     last_sync: null,
     error: null,
+    size: null,
   },
 ]
 

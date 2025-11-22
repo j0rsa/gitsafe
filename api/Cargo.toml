@@ -28,6 +28,7 @@ tempfile = "3.13"
 aes-gcm = "0.10"
 base64 = "0.22"
 sha2 = "0.10"
+url = "2.5"
 
 [dev-dependencies]
 actix-rt = "2.10"

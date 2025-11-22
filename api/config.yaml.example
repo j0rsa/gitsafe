@@ -10,6 +10,10 @@ server:
   port: 8080
   jwt_secret: "change-me-in-production-use-a-long-random-string"
   encryption_key: "change-me-in-production-use-a-long-random-string-for-encryption"
+  # Optional: List of webhook URLs to notify when sync errors occur
+  # error_webhooks:
+  #   - "https://example.com/webhook"
+  #   - "https://another-service.com/notify"
 
 storage:
   archive_dir: "./archives"

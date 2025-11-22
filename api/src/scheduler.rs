@@ -1,5 +1,6 @@
 use crate::config::Config;
 use crate::git::GitService;
+use crate::webhooks;
 use log::{error, info};
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -54,6 +55,23 @@ pub async fn setup_scheduler(
                     }
                     Err(e) => {
                         error!("Failed to sync repository {}: {}", repo.id, e);
+                        
+                        // Get webhook URLs before mutable borrow
+                        let webhook_urls = {
+                            let cfg = config.read().await;
+                            cfg.server.error_webhooks.clone()
+                        };
+                        
+                        // Notify webhooks about the error
+                        webhooks::notify_error_webhooks(
+                            &webhook_urls,
+                            repo,
+                            "sync",
+                            repo.credential_id.as_ref(),
+                            &e.to_string(),
+                        )
+                        .await;
+                        
                         // Update error in config
                         let mut cfg = config.write().await;
                         if let Some(repo_mut) = cfg.repositories.iter_mut().find(|r| r.id == repo.id) {

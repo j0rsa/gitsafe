@@ -4,6 +4,7 @@ use crate::encryption;
 use crate::error::AppError;
 use crate::git::GitService;
 use crate::middleware::AuthenticatedUser;
+use crate::webhooks;
 use actix_web::{web, HttpMessage, HttpRequest, HttpResponse};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -276,11 +277,28 @@ pub async fn sync_repository(
         .as_ref()
         .and_then(|id| config.credentials.get(id));
 
-    let (archive_path, archive_size) = state.git_service.sync_repository(
+    let sync_result = state.git_service.sync_repository(
         repository,
         credential,
         &config.server.encryption_key,
-    )?;
+    );
+
+    // Handle sync errors and notify webhooks
+    let (archive_path, archive_size) = match sync_result {
+        Ok(result) => result,
+        Err(e) => {
+            // Notify webhooks about the error
+            webhooks::notify_error_webhooks(
+                &config.server.error_webhooks,
+                repository,
+                "sync",
+                repository.credential_id.as_ref(),
+                &e.to_string(),
+            )
+            .await;
+            return Err(e);
+        }
+    };
 
     // Update repository size and last_sync
     let mut config = state.config.write().await;

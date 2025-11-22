@@ -6,6 +6,7 @@ pub mod git;
 pub mod handlers;
 pub mod middleware;
 mod scheduler;
+mod webhooks;
 
 use crate::config::Config;
 use crate::handlers::AppState;

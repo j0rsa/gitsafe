@@ -22,6 +22,8 @@ pub struct ServerConfig {
     pub jwt_secret: String,
     #[serde(default = "default_encryption_key")]
     pub encryption_key: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub error_webhooks: Vec<String>,
 }
 
 fn default_encryption_key() -> String {
@@ -121,6 +123,7 @@ impl Default for Config {
                 port: 8080,
                 jwt_secret: "change-me-in-production".to_string(),
                 encryption_key: default_encryption_key(),
+                error_webhooks: Vec::new(),
             },
             storage: StorageConfig {
                 archive_dir: "./archives".to_string(),

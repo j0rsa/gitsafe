@@ -29,6 +29,7 @@ aes-gcm = "0.10"
 base64 = "0.22"
 sha2 = "0.10"
 url = "2.5"
+reqwest = { version = "0.12", features = ["json"] }
 
 [dev-dependencies]
 actix-rt = "2.10"

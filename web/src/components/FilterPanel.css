@@ -47,6 +47,11 @@
   gap: 0.5rem;
 }
 
+/* Ensure autocomplete component fits within filter group */
+.filter-group .autocomplete-wrapper {
+  gap: 0.5rem;
+}
+
 .filter-group label {
   font-size: 0.875rem;
   font-weight: 500;
@@ -67,6 +72,72 @@
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
+.filter-button-group {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.filter-button-group button {
+  padding: 0.5rem 1rem;
+  border: 1px solid #d1d5db;
+  background: white;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  width: 100%;
+}
+
+.filter-button-all {
+  grid-column: 1 / -1;
+}
+
+.filter-button-group button:hover {
+  border-color: #6366f1;
+  background: #f5f5f5;
+}
+
+.filter-button-group button.active {
+  background: #6366f1;
+  color: white;
+  border-color: #6366f1;
+}
+
+/* Color coding for filter buttons */
+.filter-button-success {
+  border-color: #10b981;
+  color: #065f46;
+}
+
+.filter-button-success:hover {
+  background: #d1fae5;
+  border-color: #10b981;
+}
+
+.filter-button-success.active {
+  background: #10b981;
+  color: white;
+  border-color: #10b981;
+}
+
+.filter-button-error {
+  border-color: #ef4444;
+  color: #991b1b;
+}
+
+.filter-button-error:hover {
+  background: #fee2e2;
+  border-color: #ef4444;
+}
+
+.filter-button-error.active {
+  background: #ef4444;
+  color: white;
+  border-color: #ef4444;
+}
+
+/* Legacy class names for backward compatibility */
 .error-filter-buttons {
   display: flex;
   gap: 0.5rem;

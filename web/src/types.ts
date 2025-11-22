@@ -25,6 +25,7 @@ export interface SearchFilters {
   name?: string
   url?: string
   has_error?: boolean
+  enabled?: boolean
 }
 
 export interface Stats {
@@ -33,4 +34,6 @@ export interface Stats {
   inactiveRepositories: number
   totalCredentials: number
 }
+
+export type TileLayout = 'wide' | 'square'
 

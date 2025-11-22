@@ -10,10 +10,16 @@ use std::{
     rc::Rc,
 };
 
-// Extension data to store authenticated username
+/// Extension data stored in request extensions containing the authenticated username.
+///
+/// This is set by the AuthMiddleware after successful token verification.
 pub struct AuthenticatedUser(pub String);
 
-// Middleware factory
+/// Middleware factory for JWT authentication.
+///
+/// This middleware protects routes by requiring a valid JWT token in the
+/// Authorization header. The token is verified and the username is stored
+/// in request extensions for use by handlers.
 pub struct AuthMiddleware;
 
 impl<S, B> Transform<S, ServiceRequest> for AuthMiddleware
@@ -35,6 +41,7 @@ where
     }
 }
 
+/// Internal service wrapper that implements the authentication logic.
 pub struct AuthMiddlewareService<S> {
     service: Rc<S>,
 }

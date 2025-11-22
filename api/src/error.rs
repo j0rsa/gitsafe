@@ -1,6 +1,11 @@
 use actix_web::{error::ResponseError, http::StatusCode, HttpResponse};
 use thiserror::Error;
 
+/// Application error types used throughout the GitSafe application.
+///
+/// This enum represents all possible error conditions that can occur
+/// during application execution, including configuration errors, Git operations,
+/// authentication failures, and I/O errors.
 #[derive(Error, Debug)]
 pub enum AppError {
     #[error("Configuration error: {0}")]

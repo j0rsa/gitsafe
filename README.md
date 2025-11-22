@@ -11,10 +11,15 @@ Keep your Git repositories safe and backed up with ease!
 ## Features
 
 - **Scheduled Git Repository Syncing**: Automatically fetch and archive Git repositories based on a cron schedule
-- **Tarball Archiving**: Each repository is stored in a compressed `.tar.gz` archive with timestamps
+- **Dual Storage Modes**: 
+  - **Compact Mode**: Repositories stored as compressed `.tar.gz` archives (space-efficient)
+  - **Non-Compact Mode**: Repositories stored as regular folders (faster syncs, incremental updates)
+- **Incremental Updates**: Pull changes instead of re-cloning on subsequent syncs
+- **Repository Size Tracking**: Track and display repository sizes (archive or cumulative folder size)
 - **REST API**: Actix-web based REST API for managing repositories and credentials
 - **JWT Authentication**: Secure API endpoints with JWT token-based authentication
-- **Credential Management**: Store and manage Git credentials (username/password, SSH keys)
+- **Credential Management**: Store and manage Git credentials (username/password, SSH keys with encryption)
+- **Error Webhooks**: Configure webhook URLs to receive notifications when sync errors occur
 - **YAML Configuration**: Simple YAML-based configuration without a database
 - **Manual Sync**: Trigger repository synchronization manually via API
 
@@ -72,9 +77,17 @@ server:
   host: "127.0.0.1"
   port: 8080
   jwt_secret: "your-secret-key"
+  encryption_key: "your-encryption-key-for-ssh-keys"
+  # Optional: List of webhook URLs to notify when sync errors occur
+  error_webhooks:
+    - "https://example.com/webhook"
+    - "https://another-service.com/notify"
 
 storage:
   archive_dir: "./archives"
+  # If true, repositories are stored as compressed tarballs (.tar.gz)
+  # If false, repositories are stored as regular folders
+  compact: true
 
 scheduler:
   # Cron format: "sec min hour day_of_month month day_of_week"
@@ -233,29 +246,69 @@ Examples:
 - `0 0 */6 * * *` - Every 6 hours
 - `0 0 2 * * *` - Every day at 2:00 AM
 
-## Archive Structure
+## Storage Modes
 
-Archives are stored in the directory specified by `storage.archive_dir` with the following naming convention:
+GitSafe supports two storage modes configured via `storage.compact`:
 
-```
-{repository_id}_{timestamp}.tar.gz
+### Compact Mode (default)
+
+Repositories are stored as compressed `.tar.gz` archives. On each sync:
+1. Existing archive is unpacked (if present)
+2. Changes are pulled from remote
+3. New archive is created
+4. Temporary files are cleaned up
+
+**Archive naming**: `{domain}_{user}_{repo}.tar.gz`
+- Example: `github_com-example-repo1.tar.gz`
+
+### Non-Compact Mode
+
+Repositories are stored as regular folders. On each sync:
+1. Repository is cloned (if new) or updated via pull (if exists)
+2. Cumulative folder size is calculated
+
+**Folder naming**: `{domain}_{user}_{repo}`
+- Example: `github_com-example-repo1`
+
+### Repository Name Generation
+
+Repository names are automatically generated from URLs to prevent collisions:
+- Domain dots are replaced with underscores: `github.com` → `github_com`
+- Path segments are joined with dashes: `example/repo1` → `example-repo1`
+- `.git` suffix is automatically removed
+- Example: `https://github.com/example/repo1.git` → `github_com-example-repo1`
+
+## Error Webhooks
+
+Configure webhook URLs in `server.error_webhooks` to receive notifications when repository sync errors occur. Each webhook receives a POST request with the following JSON payload:
+
+```json
+{
+  "time": "2024-01-01T12:00:00Z",
+  "repo": {
+    "id": "repo-123",
+    "url": "https://github.com/user/repo.git",
+    "enabled": true
+  },
+  "operation": "sync",
+  "credential_id": "cred-456",
+  "error_message": "Failed to clone repository: ..."
+}
 ```
 
-Example:
-```
-archives/
-├── repo1_20250121_140530.tar.gz
-├── repo1_20250121_150530.tar.gz
-└── repo2_20250121_140535.tar.gz
-```
+Webhook calls are:
+- **Non-blocking**: Sent asynchronously without affecting sync operations
+- **Fault-tolerant**: Failures are logged but don't interrupt the main flow
+- **Timeout-protected**: 10-second timeout per webhook
 
 ## Security Considerations
 
 1. **Change Default Credentials**: The default admin password is `admin`. Change it immediately in production.
 2. **JWT Secret**: Use a strong, random secret for JWT token generation.
-3. **HTTPS**: Use a reverse proxy (nginx, caddy) to enable HTTPS in production.
-4. **Credential Storage**: Credentials are stored in plain text in the YAML file. Ensure proper file permissions.
-5. **File Permissions**: Set restrictive permissions on `config.yaml`: `chmod 600 config.yaml`
+3. **Encryption Key**: Use a strong, random key for SSH key encryption (different from JWT secret).
+4. **HTTPS**: Use a reverse proxy (nginx, caddy) to enable HTTPS in production.
+5. **SSH Key Encryption**: SSH keys are encrypted using AES-256-GCM before storage.
+6. **File Permissions**: Set restrictive permissions on `config.yaml`: `chmod 600 config.yaml`
 
 ## Libraries Used
 
@@ -266,7 +319,10 @@ archives/
 - **serde_yaml_ng**: YAML configuration parsing (maintained fork of serde_yaml)
 - **jsonwebtoken**: JWT authentication
 - **bcrypt**: Password hashing
-- **tar & flate2**: Archive creation
+- **tar & flate2**: Archive creation and compression
+- **reqwest**: HTTP client for webhook notifications
+- **aes-gcm**: AES-256-GCM encryption for SSH keys
+- **chrono**: Date and time handling
 
 ## CI/CD Pipeline
 

@@ -352,50 +352,41 @@ impl GitService {
 
         if let Some(cred) = credential {
             let username = cred.username.clone();
-            let password = cred.password.clone();
+            // Decrypt password if present and encrypted, or use as-is for backward compatibility
+            let password = cred.password.as_ref()
+                .map(|p| encryption::decrypt_password(p, encryption_key))
+                .unwrap_or_else(|| String::new());
             
-            // Decrypt SSH key if encrypted, before setting up the closure
-            let (ssh_key_data, is_file_path): (Option<String>, bool) = if let Some(ref key_data) = cred.ssh_key {
+            // Decrypt SSH key if encrypted
+            let ssh_key_data: Option<String> = if let Some(ref key_data) = cred.ssh_key {
                 // Check if it's plaintext SSH key content
                 if key_data.starts_with("-----BEGIN") || key_data.contains('\n') {
-                    (Some(key_data.clone()), false)
-                }
-                // Likely encrypted - try to decrypt
-                else {
+                    Some(key_data.clone())
+                } else {
+                    // Likely encrypted - try to decrypt
                     match encryption::decrypt_ssh_key(key_data, encryption_key) {
-                        Ok(decrypted) => {
-                            // Decrypted successfully - it's key content, not a file path
-                            (Some(decrypted), false)
-                        }
+                        Ok(decrypted) => Some(decrypted),
                         Err(_) => {
-                            // If decryption fails, assume it's a file path (backward compatibility)
-                            (Some(key_data.clone()), true)
+                            // If decryption fails, return error - SSH keys must be valid content
+                            return Err(AppError::GitError(
+                                "Invalid SSH key: decryption failed and key does not appear to be valid SSH key content".to_string()
+                            ));
                         }
                     }
                 }
             } else {
-                (None, false)
+                None
             };
 
             callbacks.credentials(move |_url, username_from_url, _allowed_types| {
                 if let Some(ref key_data) = ssh_key_data {
-                    if is_file_path {
-                        // File path (backward compatibility)
-                        Cred::ssh_key(
-                            username_from_url.unwrap_or(&username),
-                            None,
-                            Path::new(key_data),
-                            None,
-                        )
-                    } else {
-                        // Plaintext SSH key content (decrypted or original) - use from memory
-                        Cred::ssh_key_from_memory(
-                            username_from_url.unwrap_or(&username),
-                            None,
-                            key_data,
-                            None,
-                        )
-                    }
+                    // Use SSH key from memory (always key content, never file path)
+                    Cred::ssh_key_from_memory(
+                        username_from_url.unwrap_or(&username),
+                        None,
+                        key_data,
+                        None,
+                    )
                 } else {
                     Cred::userpass_plaintext(&username, &password)
                 }
@@ -459,39 +450,41 @@ impl GitService {
 
         if let Some(cred) = credential {
             let username = cred.username.clone();
-            let password = cred.password.clone();
+            // Decrypt password if present and encrypted, or use as-is for backward compatibility
+            let password = cred.password.as_ref()
+                .map(|p| encryption::decrypt_password(p, encryption_key))
+                .unwrap_or_else(|| String::new());
             
             // Decrypt SSH key if encrypted
-            let (ssh_key_data, is_file_path): (Option<String>, bool) = if let Some(ref key_data) = cred.ssh_key {
+            let ssh_key_data: Option<String> = if let Some(ref key_data) = cred.ssh_key {
+                // Check if it's plaintext SSH key content
                 if key_data.starts_with("-----BEGIN") || key_data.contains('\n') {
-                    (Some(key_data.clone()), false)
+                    Some(key_data.clone())
                 } else {
+                    // Likely encrypted - try to decrypt
                     match encryption::decrypt_ssh_key(key_data, encryption_key) {
-                        Ok(decrypted) => (Some(decrypted), false),
-                        Err(_) => (Some(key_data.clone()), true),
+                        Ok(decrypted) => Some(decrypted),
+                        Err(_) => {
+                            // If decryption fails, return error - SSH keys must be valid content
+                            return Err(AppError::GitError(
+                                "Invalid SSH key: decryption failed and key does not appear to be valid SSH key content".to_string()
+                            ));
+                        }
                     }
                 }
             } else {
-                (None, false)
+                None
             };
 
             callbacks.credentials(move |_url, username_from_url, _allowed_types| {
                 if let Some(ref key_data) = ssh_key_data {
-                    if is_file_path {
-                        Cred::ssh_key(
-                            username_from_url.unwrap_or(&username),
-                            None,
-                            Path::new(key_data),
-                            None,
-                        )
-                    } else {
-                        Cred::ssh_key_from_memory(
-                            username_from_url.unwrap_or(&username),
-                            None,
-                            key_data,
-                            None,
-                        )
-                    }
+                    // Use SSH key from memory (always key content, never file path)
+                    Cred::ssh_key_from_memory(
+                        username_from_url.unwrap_or(&username),
+                        None,
+                        key_data,
+                        None,
+                    )
                 } else {
                     Cred::userpass_plaintext(&username, &password)
                 }

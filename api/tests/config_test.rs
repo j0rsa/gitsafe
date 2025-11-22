@@ -34,12 +34,12 @@ fn test_config_serialization() {
     });
     
     // Add a credential
-    let cred = Credential {
-        id: "cred1".to_string(),
-        username: "user".to_string(),
-        password: "pass".to_string(),
-        ssh_key: None,
-    };
+    let cred = Credential::try_new(
+        "cred1".to_string(),
+        "user".to_string(),
+        Some("pass".to_string()),
+        None,
+    ).unwrap();
     config.credentials.insert(cred.id.clone(), cred);
     
         // Serialize to YAML
@@ -75,15 +75,64 @@ fn test_repository_creation() {
 
 #[test]
 fn test_credential_with_ssh_key() {
-    let cred = Credential {
-        id: "cred1".to_string(),
-        username: "git".to_string(),
-        password: "".to_string(),
-        ssh_key: Some("/path/to/key".to_string()),
-    };
+    let ssh_key_content = "-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAlwAAAAdzc2gtcn\nNhAAAAAwEAAQAAAIEAy...\n-----END OPENSSH PRIVATE KEY-----";
+    let cred = Credential::try_new(
+        "cred1".to_string(),
+        "git".to_string(),
+        None,
+        Some(ssh_key_content.to_string()),
+    ).unwrap();
     
     assert_eq!(cred.username, "git");
-    assert_eq!(cred.ssh_key, Some("/path/to/key".to_string()));
+    assert_eq!(cred.ssh_key, Some(ssh_key_content.to_string()));
+}
+
+#[test]
+fn test_credential_constructor_validation() {
+    use gitsafe::error::AppError;
+    
+    // Valid: password provided
+    let cred = Credential::try_new(
+        "cred1".to_string(),
+        "user".to_string(),
+        Some("password".to_string()),
+        None,
+    );
+    assert!(cred.is_ok());
+    
+    // Valid: SSH key provided (must be valid SSH key content)
+    let ssh_key = "-----BEGIN OPENSSH PRIVATE KEY-----\ntest-key-content\n-----END OPENSSH PRIVATE KEY-----";
+    let cred = Credential::try_new(
+        "cred2".to_string(),
+        "git".to_string(),
+        None,
+        Some(ssh_key.to_string()),
+    );
+    assert!(cred.is_ok());
+    
+    // Valid: both provided
+    let cred = Credential::try_new(
+        "cred3".to_string(),
+        "user".to_string(),
+        Some("password".to_string()),
+        Some(ssh_key.to_string()),
+    );
+    assert!(cred.is_ok());
+    
+    // Invalid: both missing
+    let cred = Credential::try_new(
+        "cred4".to_string(),
+        "user".to_string(),
+        None,
+        None,
+    );
+    assert!(cred.is_err());
+    match cred {
+        Err(AppError::BadRequest(msg)) => {
+            assert!(msg.contains("At least one of password or SSH key must be provided"));
+        }
+        _ => panic!("Expected BadRequest error"),
+    }
 }
 
 #[test]

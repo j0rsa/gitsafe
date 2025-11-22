@@ -11,37 +11,58 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
+/// Application state shared across all request handlers.
+///
+/// Contains the configuration, authentication service, and Git service
+/// instances needed by handlers.
 pub struct AppState {
+    /// Shared configuration (read-write lock for concurrent access)
     pub config: Arc<RwLock<Config>>,
+    /// Path to the configuration file
     pub config_path: String,
+    /// Authentication service for JWT operations
     pub auth_service: AuthService,
+    /// Git service for repository operations
     pub git_service: GitService,
 }
 
 // Request/Response types
+
+/// Login request payload.
 #[derive(Debug, Deserialize, Serialize)]
 pub struct LoginRequest {
+    /// Username for authentication
     pub username: String,
+    /// Password for authentication
     pub password: String,
 }
 
+/// Login response containing JWT token.
 #[derive(Debug, Serialize)]
 pub struct LoginResponse {
+    /// JWT token for authenticated requests
     pub token: String,
 }
 
+/// Request payload for adding a new repository.
 #[derive(Debug, Deserialize)]
 pub struct AddRepositoryRequest {
+    /// Git repository URL
     pub url: String,
+    /// Optional credential ID for authenticated access
     pub credential_id: Option<String>,
 }
 
+/// Request payload for updating repository settings.
 #[derive(Debug, Deserialize)]
 pub struct UpdateRepositoryRequest {
+    /// Whether the repository is enabled for syncing
     pub enabled: Option<bool>,
+    /// Optional credential ID for authenticated access
     pub credential_id: Option<String>,
 }
 
+/// Repository information response.
 #[derive(Debug, Serialize)]
 pub struct RepositoryResponse {
     pub id: String,
@@ -56,26 +77,45 @@ pub struct RepositoryResponse {
     pub size: Option<u64>,
 }
 
+/// Request payload for adding a new credential.
 #[derive(Debug, Deserialize)]
 pub struct AddCredentialRequest {
+    /// Username for Git authentication
     pub username: String,
+    /// Password for Git authentication (can be empty if using SSH key)
     pub password: String,
+    /// SSH private key content or file path (can be empty if using password)
     pub ssh_key: Option<String>,
 }
 
+/// Credential information response (without sensitive data).
 #[derive(Debug, Serialize)]
 pub struct CredentialResponse {
+    /// Credential ID
     pub id: String,
+    /// Username
     pub username: String,
 }
 
+/// Request payload for manually syncing a repository.
 #[derive(Debug, Deserialize)]
 pub struct SyncRequest {
+    /// ID of the repository to sync
     pub repository_id: String,
 }
 
-// Helper function to extract authenticated user from request extensions
-// This is only needed if handlers need to access the username
+/// Extracts the authenticated username from request extensions.
+///
+/// This helper function retrieves the username that was set by the AuthMiddleware
+/// after successful token verification.
+///
+/// # Arguments
+///
+/// * `req` - HTTP request containing the authenticated user extension
+///
+/// # Returns
+///
+/// Returns the username string, or an error if the user is not authenticated.
 pub fn get_authenticated_user(req: &HttpRequest) -> Result<String, AppError> {
     req.extensions()
         .get::<AuthenticatedUser>()
@@ -96,6 +136,7 @@ pub async fn login(
     Ok(HttpResponse::Ok().json(LoginResponse { token }))
 }
 
+/// Query parameters for searching/filtering repositories.
 #[derive(Debug, Deserialize)]
 pub struct SearchRepositoriesQuery {
     #[serde(default)]
@@ -358,18 +399,28 @@ pub async fn add_credential(
             // It's plaintext SSH key content - encrypt it
             Some(encryption::encrypt_ssh_key(key, &config.server.encryption_key)?)
         } else {
-            None
+            // Reject keys that don't look like SSH key content (could be file paths)
+            return Err(AppError::BadRequest(
+                "SSH key must be the actual key content, not a file path. Please paste the full SSH private key.".to_string()
+            ));
         }
     } else {
         None
     };
 
-    let credential = Credential {
-        id: Uuid::new_v4().to_string(),
-        username: data.username.clone(),
-        password: data.password.clone(),
-        ssh_key,
+    // Encrypt password if provided
+    let password = if !data.password.is_empty() {
+        Some(encryption::encrypt_password(&data.password, &config.server.encryption_key)?)
+    } else {
+        None
     };
+
+    let credential = Credential::try_new(
+        Uuid::new_v4().to_string(),
+        data.username.clone(),
+        password,
+        ssh_key,
+    )?;
 
     let response = CredentialResponse {
         id: credential.id.clone(),
@@ -413,8 +464,10 @@ pub async fn update_credential(
     
     // Determine what will exist after update
     let final_password = if has_password {
-        data.password.clone()
+        // Encrypt the new password
+        Some(encryption::encrypt_password(&data.password, &encryption_key)?)
     } else {
+        // Keep existing password (already encrypted or plaintext for backward compatibility)
         existing_credential.password.clone()
     };
     
@@ -425,7 +478,10 @@ pub async fn update_credential(
             // It's plaintext SSH key content - encrypt it
             Some(encryption::encrypt_ssh_key(key, &encryption_key)?)
         } else {
-            None
+            // Reject keys that don't look like SSH key content (could be file paths)
+            return Err(AppError::BadRequest(
+                "SSH key must be the actual key content, not a file path. Please paste the full SSH private key.".to_string()
+            ));
         }
     } else if has_password {
         // Password is provided but SSH key is not - delete SSH key
@@ -435,14 +491,16 @@ pub async fn update_credential(
         existing_credential.ssh_key.clone()
     };
     
-    // Validate that at least one authentication method will exist after update
-    if final_password.is_empty() && final_ssh_key.is_none() {
-        return Err(AppError::BadRequest(
-            "At least one of password or SSH key must be provided".to_string()
-        ));
-    }
+    // Validate and update the credential using the constructor
+    // We need to create a new credential to validate, then update the existing one
+    let _validated = Credential::try_new(
+        credential.id.clone(),
+        data.username.clone(),
+        final_password.clone(),
+        final_ssh_key.clone(),
+    )?;
 
-    // Update the credential
+    // Update the credential (validation passed)
     credential.username = data.username.clone();
     credential.password = final_password;
     credential.ssh_key = final_ssh_key;

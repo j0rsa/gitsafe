@@ -27,9 +27,9 @@ class ApiClient {
     options: RequestInit = {}
   ): Promise<T> {
     const token = this.getToken()
-    const headers: HeadersInit = {
+    const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      ...options.headers,
+      ...(options.headers as Record<string, string>),
     }
 
     if (token) {
@@ -47,8 +47,40 @@ class ApiClient {
     }
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: 'Unknown error' }))
-      throw new Error(error.error || `HTTP error! status: ${response.status}`)
+      let errorMessage = `HTTP error! status: ${response.status}`
+      try {
+        const errorData = await response.json()
+        // Handle different error response formats
+        if (errorData.error) {
+          errorMessage = errorData.error
+        } else if (errorData.message) {
+          errorMessage = errorData.message
+        } else if (typeof errorData === 'string') {
+          errorMessage = errorData
+        }
+      } catch {
+        // If response is not JSON, try to get text
+        try {
+          const text = await response.text()
+          if (text) {
+            errorMessage = text
+          }
+        } catch {
+          // Fallback to status-based message
+          if (response.status === 400) {
+            errorMessage = 'Bad request. Please check your input.'
+          } else if (response.status === 401) {
+            errorMessage = 'Unauthorized. Please log in again.'
+          } else if (response.status === 404) {
+            errorMessage = 'Resource not found.'
+          } else if (response.status === 409) {
+            errorMessage = 'Repository already exists.'
+          } else if (response.status >= 500) {
+            errorMessage = 'Server error. Please try again later.'
+          }
+        }
+      }
+      throw new Error(errorMessage)
     }
 
     if (response.status === 204) {
@@ -90,6 +122,23 @@ class ApiClient {
     return this.request('/sync', {
       method: 'POST',
       body: JSON.stringify({ repository_id: repositoryId }),
+    })
+  }
+
+  async updateRepository(
+    id: string,
+    updates: { enabled?: boolean; credential_id?: string | null }
+  ): Promise<Repository> {
+    return this.request(`/repositories/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(updates),
+    })
+  }
+
+  async addRepository(data: { url: string; credential_id?: string | null }): Promise<Repository> {
+    return this.request('/repositories', {
+      method: 'POST',
+      body: JSON.stringify(data),
     })
   }
 }

@@ -92,8 +92,40 @@
 
 .dashboard-controls {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 1rem;
+  gap: 1rem;
+}
+
+.add-repository-btn {
+  padding: 0.75rem 1.5rem;
+  background: #6366f1;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.add-repository-btn:hover:not(:disabled) {
+  background: #4f46e5;
+}
+
+.add-repository-btn:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.add-repository-btn:disabled {
+  background: #9ca3af;
+  color: #f3f4f6;
+  cursor: not-allowed;
+  opacity: 0.6;
+  box-shadow: none;
 }
 
 .tile-layout-selector {
@@ -211,7 +243,18 @@
   }
 
   .dashboard-controls {
-    justify-content: flex-start;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+
+  .add-repository-btn {
+    width: 100%;
+  }
+
+  .tile-layout-selector {
+    width: 100%;
+    justify-content: space-between;
   }
 
   .repositories-grid,

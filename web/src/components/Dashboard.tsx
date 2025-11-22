@@ -1,9 +1,11 @@
 import React, { useEffect, useState, useMemo } from 'react'
 import { apiClient } from '../api/client'
-import type { Repository, SearchFilters, Stats, TileLayout } from '../types'
+import type { Repository, Credential, SearchFilters, Stats, TileLayout } from '../types'
 import { Stats as StatsComponent } from './Stats'
 import { FilterPanel } from './FilterPanel'
 import { RepositoryTile } from './RepositoryTile'
+import { RepositoryEditDialog } from './RepositoryEditDialog'
+import { RepositoryAddDialog } from './RepositoryAddDialog'
 import './Dashboard.css'
 
 // Fuzzy matching function - checks if query characters appear in order in the text
@@ -27,17 +29,36 @@ const fuzzyMatch = (text: string, query: string): boolean => {
   return queryIndex === queryLower.length
 }
 
-// Extract base domain from URL
+// Extract base domain from URL (with protocol, e.g., "https://github.com")
 const extractBaseDomain = (url: string): string | null => {
   try {
     const urlObj = new URL(url)
     return urlObj.origin // Returns protocol + hostname (e.g., "https://github.com")
   } catch {
     // If URL parsing fails, try to extract domain manually
-    const match = url.match(/^(https?:\/\/)?([^\/]+)/)
+    const match = url.match(/^(https?:\/\/)([^\/]+)/)
     if (match) {
-      const protocol = match[1] || 'https://'
-      return protocol + match[2]
+      return match[1] + match[2] // protocol + domain
+    }
+    return null
+  }
+}
+
+// Extract base domain with user/org (with protocol, e.g., "https://github.com/example")
+const extractBaseDomainWithUser = (url: string): string | null => {
+  try {
+    const urlObj = new URL(url)
+    const pathParts = urlObj.pathname.split('/').filter(Boolean)
+    if (pathParts.length >= 1) {
+      // Return origin + first path segment (user/org) with protocol
+      return `${urlObj.origin}/${pathParts[0]}`
+    }
+    return null
+  } catch {
+    // If URL parsing fails, try to extract manually
+    const match = url.match(/^(https?:\/\/[^\/]+)\/([^\/]+)/)
+    if (match) {
+      return `${match[1]}/${match[2]}` // protocol + hostname/user
     }
     return null
   }
@@ -45,12 +66,14 @@ const extractBaseDomain = (url: string): string | null => {
 
 export const Dashboard: React.FC = () => {
   const [allRepositories, setAllRepositories] = useState<Repository[]>([])
-  const [credentials, setCredentials] = useState<number>(0)
+  const [credentials, setCredentials] = useState<Credential[]>([])
   const [filters, setFilters] = useState<SearchFilters>({})
   const [initialLoading, setInitialLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [tileLayout, setTileLayout] = useState<TileLayout>('wide')
   const [syncingRepos, setSyncingRepos] = useState<Set<string>>(new Set())
+  const [editingRepoId, setEditingRepoId] = useState<string | null>(null)
+  const [showAddDialog, setShowAddDialog] = useState(false)
 
   // Load initial data (all repositories)
   const loadInitialData = async () => {
@@ -62,7 +85,7 @@ export const Dashboard: React.FC = () => {
         apiClient.getCredentials(),
       ])
       setAllRepositories(repos)
-      setCredentials(creds.length)
+      setCredentials(creds)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load data')
     } finally {
@@ -82,21 +105,25 @@ export const Dashboard: React.FC = () => {
     [allRepositories]
   )
   const urlSuggestions = useMemo(() => {
-    const fullUrls = new Set<string>()
     const baseDomains = new Set<string>()
+    const baseDomainsWithUser = new Set<string>()
     
-    // Separate full URLs and base domains
+    // Extract base domains and base domains with users/orgs
     allRepositories.forEach((r) => {
-      fullUrls.add(r.url)
-      
       const baseDomain = extractBaseDomain(r.url)
       if (baseDomain) {
         baseDomains.add(baseDomain)
       }
+      
+      const baseDomainWithUser = extractBaseDomainWithUser(r.url)
+      if (baseDomainWithUser) {
+        baseDomainsWithUser.add(baseDomainWithUser)
+      }
     })
     
-    // Return base domains first, then full URLs
-    return [...Array.from(baseDomains), ...Array.from(fullUrls)]
+    // Return base domains first, then base domains with users/orgs
+    // Do NOT include full repository URLs
+    return [...Array.from(baseDomains), ...Array.from(baseDomainsWithUser)]
   }, [allRepositories])
 
   // Client-side filtering
@@ -135,7 +162,7 @@ export const Dashboard: React.FC = () => {
     totalRepositories: allRepositories.length,
     activeRepositories: allRepositories.filter((r) => r.enabled).length,
     inactiveRepositories: allRepositories.filter((r) => !r.enabled).length,
-    totalCredentials: credentials,
+    totalCredentials: credentials.length,
   }
 
   const handleSync = async (id: string) => {
@@ -167,6 +194,36 @@ export const Dashboard: React.FC = () => {
       alert(err instanceof Error ? err.message : 'Failed to delete repository')
     }
   }
+
+  const handleEdit = (id: string) => {
+    setEditingRepoId(id)
+  }
+
+  const handleSaveRepository = async (updates: { enabled: boolean; credential_id: string | null }) => {
+    if (!editingRepoId) return
+    
+    try {
+      await apiClient.updateRepository(editingRepoId, updates)
+      await loadInitialData()
+      setEditingRepoId(null)
+    } catch (err) {
+      throw err
+    }
+  }
+
+  const handleAddRepository = async (data: { url: string; credential_id: string | null }) => {
+    try {
+      await apiClient.addRepository(data)
+      await loadInitialData()
+      setShowAddDialog(false)
+    } catch (err) {
+      throw err
+    }
+  }
+
+  const editingRepository = editingRepoId
+    ? allRepositories.find((r) => r.id === editingRepoId)
+    : null
 
   // Initial loading - show full dashboard loading state
   if (initialLoading) {
@@ -211,6 +268,12 @@ export const Dashboard: React.FC = () => {
           urlSuggestions={urlSuggestions}
         />
         <div className="dashboard-controls">
+          <button
+            className="add-repository-btn"
+            onClick={() => setShowAddDialog(true)}
+          >
+            + Add Repository
+          </button>
           <div className="tile-layout-selector">
             <label htmlFor="tile-layout">Tile Layout:</label>
             <select
@@ -238,10 +301,27 @@ export const Dashboard: React.FC = () => {
                 inProgress={syncingRepos.has(repo.id)}
                 onSync={handleSync}
                 onDelete={handleDelete}
+                onEdit={handleEdit}
               />
             ))
           )}
         </div>
+        {editingRepository && (
+          <RepositoryEditDialog
+            repository={editingRepository}
+            credentials={credentials}
+            isOpen={true}
+            onClose={() => setEditingRepoId(null)}
+            onSave={handleSaveRepository}
+          />
+        )}
+        <RepositoryAddDialog
+          credentials={credentials}
+          isOpen={showAddDialog}
+          onClose={() => setShowAddDialog(false)}
+          onSave={handleAddRepository}
+          urlSuggestions={urlSuggestions}
+        />
       </div>
     </div>
   )

@@ -1,0 +1,260 @@
+.dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.dialog-content {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  width: 100%;
+  max-width: 500px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.dialog-header h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #111827;
+  margin: 0;
+}
+
+.dialog-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 0;
+  width: 2rem;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.dialog-close:hover {
+  background: #f3f4f6;
+  color: #111827;
+}
+
+.dialog-body {
+  padding: 1.5rem;
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex: 1;
+  box-sizing: border-box;
+}
+
+.dialog-field {
+  margin-bottom: 1.5rem;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.dialog-field:last-child {
+  margin-bottom: 0;
+}
+
+.dialog-field-error {
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: #fee2e2;
+  border-left: 3px solid #ef4444;
+  border-radius: 4px;
+  color: #991b1b;
+  font-size: 0.75rem;
+}
+
+.dialog-field label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 0.5rem;
+}
+
+.dialog-input-disabled {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  background: #f9fafb;
+  color: #6b7280;
+  cursor: not-allowed;
+  box-sizing: border-box;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dialog-toggle-group {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.dialog-toggle-btn {
+  flex: 1;
+  padding: 0.5rem 1rem;
+  border: 1px solid #d1d5db;
+  background: white;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.dialog-toggle-btn:hover {
+  border-color: #6366f1;
+  background: #f5f5f5;
+}
+
+.dialog-toggle-btn.active {
+  background: #6366f1;
+  color: white;
+  border-color: #6366f1;
+}
+
+.dialog-clear-btn {
+  margin-top: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: #f3f4f6;
+  color: #374151;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.dialog-clear-btn:hover {
+  background: #e5e7eb;
+}
+
+.dialog-error-section {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: #fef2f2;
+  border-left: 3px solid #ef4444;
+  border-radius: 4px;
+}
+
+.dialog-error-section label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #991b1b;
+  margin-bottom: 0.5rem;
+}
+
+.dialog-error-display {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.dialog-error-display .error-icon {
+  font-size: 1.25rem;
+  flex-shrink: 0;
+}
+
+.dialog-error-display .error-text {
+  color: #991b1b;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.dialog-error-message {
+  padding: 0.75rem;
+  background: #fee2e2;
+  border-left: 3px solid #ef4444;
+  border-radius: 4px;
+  color: #991b1b;
+  font-size: 0.875rem;
+  margin-top: 1rem;
+  animation: shake 0.3s ease-in-out;
+}
+
+.dialog-error-message strong {
+  font-weight: 600;
+}
+
+@keyframes shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-5px);
+  }
+  75% {
+    transform: translateX(5px);
+  }
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 1.5rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.dialog-btn {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.dialog-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.dialog-btn-secondary {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.dialog-btn-secondary:hover:not(:disabled) {
+  background: #e5e7eb;
+}
+
+.dialog-btn-primary {
+  background: #6366f1;
+  color: white;
+}
+
+.dialog-btn-primary:hover:not(:disabled) {
+  background: #4f46e5;
+}
+

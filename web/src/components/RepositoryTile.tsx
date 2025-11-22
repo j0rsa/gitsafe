@@ -8,6 +8,7 @@ export interface RepositoryTileProps {
   inProgress?: boolean
   onSync?: (id: string) => void
   onDelete?: (id: string) => void
+  onEdit?: (id: string) => void
 }
 
 export const RepositoryTile: React.FC<RepositoryTileProps> = ({
@@ -16,6 +17,7 @@ export const RepositoryTile: React.FC<RepositoryTileProps> = ({
   inProgress = false,
   onSync,
   onDelete,
+  onEdit,
 }) => {
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'Never'
@@ -43,6 +45,11 @@ export const RepositoryTile: React.FC<RepositoryTileProps> = ({
         </div>
         <div className="repository-status">
           <span className={`status-badge ${repository.enabled ? 'active' : 'inactive'}`}>
+            {repository.error && (
+              <span className="status-badge-icon status-badge-icon-tooltip" data-tooltip={repository.error}>
+                ⚠️
+              </span>
+            )}
             {repository.enabled ? 'Active' : 'Inactive'}
           </span>
         </div>
@@ -59,15 +66,32 @@ export const RepositoryTile: React.FC<RepositoryTileProps> = ({
           <span className="meta-label">Last Sync:</span>
           <span className="meta-value">{formatDate(repository.last_sync)}</span>
         </div>
-        {repository.error && (
-          <div className="repository-error">
-            <span className="error-icon">⚠️</span>
-            <span className="error-message">{repository.error}</span>
-          </div>
-        )}
       </div>
 
       <div className="repository-tile-actions">
+        {onEdit && (
+          <button
+            className="action-btn edit-btn"
+            onClick={() => onEdit(repository.id)}
+            title="Edit"
+          >
+            <svg
+              className="edit-icon"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+            </svg>
+            {layout === 'wide' && <span>Edit</span>}
+          </button>
+        )}
         {repository.enabled && onSync && (
           <button
             className="action-btn sync-btn"

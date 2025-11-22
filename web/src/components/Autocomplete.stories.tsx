@@ -113,7 +113,7 @@ export const NoSuggestions: Story = {
   render: (args) => <AutocompleteWrapper {...args} />,
   args: {
     id: 'autocomplete-empty',
-    label: 'Repository Name',
+    label: 'Credential (No options - Auto-disabled)',
     placeholder: 'No suggestions available...',
     suggestions: [],
     maxSuggestions: 10,

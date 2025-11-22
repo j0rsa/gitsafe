@@ -162,6 +162,57 @@ export const FilteringDemo: Story = {
   },
 }
 
+export const ClickToOpen: Story = {
+  render: () => {
+    const [clickValue, setClickValue] = useState('')
+    const [typeValue, setTypeValue] = useState('')
+    const sampleCredentials = ['cred-1', 'cred-2', 'cred-3', 'cred-4', 'cred-5']
+    
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+        <div>
+          <h3 style={{ marginBottom: '1rem' }}>Click to Open (openOnEmptyFocus)</h3>
+          <Autocomplete
+            id="click-to-open"
+            label="Credential ID"
+            placeholder="Click to see all available credentials..."
+            value={clickValue}
+            onChange={setClickValue}
+            suggestions={sampleCredentials}
+            maxSuggestions={10}
+            openOnEmptyFocus={true}
+          />
+          <div style={{ marginTop: '1rem', padding: '0.75rem', background: '#f0fdf4', borderRadius: '6px', fontSize: '0.875rem' }}>
+            <strong>💡 Tip:</strong> Click on the input field or the dropdown icon to open the suggestions list, even when the field is empty. The chevron icon rotates when the dropdown is open.
+          </div>
+          <div style={{ marginTop: '0.5rem', padding: '0.75rem', background: '#f5f5f5', borderRadius: '6px', fontSize: '0.875rem' }}>
+            <strong>Current value:</strong> {clickValue || '(empty)'}
+          </div>
+        </div>
+        <div>
+          <h3 style={{ marginBottom: '1rem' }}>Comparison: Type to Open (default)</h3>
+          <Autocomplete
+            id="type-to-open"
+            label="Repository Name"
+            placeholder="Start typing to see suggestions..."
+            value={typeValue}
+            onChange={setTypeValue}
+            suggestions={sampleNames}
+            maxSuggestions={10}
+            openOnEmptyFocus={false}
+          />
+          <div style={{ marginTop: '1rem', padding: '0.75rem', background: '#fef2f2', borderRadius: '6px', fontSize: '0.875rem' }}>
+            <strong>Note:</strong> This autocomplete only opens when you start typing. Clicking won't open it if the field is empty.
+          </div>
+          <div style={{ marginTop: '0.5rem', padding: '0.75rem', background: '#f5f5f5', borderRadius: '6px', fontSize: '0.875rem' }}>
+            <strong>Current value:</strong> {typeValue || '(empty)'}
+          </div>
+        </div>
+      </div>
+    )
+  },
+}
+
 export const KeyboardNavigation: Story = {
   render: () => {
     const [value, setValue] = useState('')

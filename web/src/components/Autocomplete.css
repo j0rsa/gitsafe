@@ -15,9 +15,35 @@
   width: 100%;
 }
 
+.autocomplete-icon {
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: #6b7280;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s, transform 0.2s;
+}
+
+.autocomplete-icon.open {
+  transform: translateY(-50%) rotate(180deg);
+}
+
+.autocomplete-input:focus ~ .autocomplete-icon {
+  color: #6366f1;
+}
+
+.autocomplete-input:disabled ~ .autocomplete-icon {
+  color: #9ca3af;
+  opacity: 0.5;
+}
+
 .autocomplete-input {
   width: 100%;
-  padding: 0.75rem;
+  padding: 0.75rem 2.5rem 0.75rem 0.75rem;
   border: 1px solid #d1d5db;
   border-radius: 6px;
   font-size: 0.875rem;

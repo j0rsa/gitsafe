@@ -26,6 +26,7 @@ pub async fn setup_scheduler(
             let cfg = config.read().await;
             let credentials = cfg.credentials.clone();
             let repositories = cfg.repositories.clone();
+            let encryption_key = cfg.server.encryption_key.clone();
             drop(cfg); // Release the lock
 
             for repo in repositories.iter().filter(|r| r.enabled) {
@@ -34,7 +35,7 @@ pub async fn setup_scheduler(
                     .as_ref()
                     .and_then(|id| credentials.get(id));
 
-                match git_service.sync_repository(repo, credential) {
+                match git_service.sync_repository(repo, credential, &encryption_key) {
                     Ok(archive_path) => {
                         info!(
                             "Successfully synced repository {}: {:?}",

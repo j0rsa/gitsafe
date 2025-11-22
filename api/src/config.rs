@@ -20,6 +20,12 @@ pub struct ServerConfig {
     pub host: String,
     pub port: u16,
     pub jwt_secret: String,
+    #[serde(default = "default_encryption_key")]
+    pub encryption_key: String,
+}
+
+fn default_encryption_key() -> String {
+    "change-me-in-production-use-a-long-random-string-for-encryption".to_string()
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -106,6 +112,7 @@ impl Default for Config {
                 host: "127.0.0.1".to_string(),
                 port: 8080,
                 jwt_secret: "change-me-in-production".to_string(),
+                encryption_key: default_encryption_key(),
             },
             storage: StorageConfig {
                 archive_dir: "./archives".to_string(),

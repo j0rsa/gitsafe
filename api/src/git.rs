@@ -1,4 +1,5 @@
 use crate::config::{Credential, Repository};
+use crate::encryption;
 use crate::error::AppError;
 use flate2::write::GzEncoder;
 use flate2::Compression;
@@ -24,6 +25,7 @@ impl GitService {
         &self,
         repo: &Repository,
         credential: Option<&Credential>,
+        encryption_key: &str,
     ) -> Result<PathBuf, AppError> {
         info!("Syncing repository: {} ({})", repo.id, repo.url);
 
@@ -36,16 +38,49 @@ impl GitService {
         if let Some(cred) = credential {
             let username = cred.username.clone();
             let password = cred.password.clone();
-            let ssh_key = cred.ssh_key.clone();
+            
+            // Decrypt SSH key if encrypted, before setting up the closure
+            let (ssh_key_data, is_file_path): (Option<String>, bool) = if let Some(ref key_data) = cred.ssh_key {
+                // Check if it's plaintext SSH key content
+                if key_data.starts_with("-----BEGIN") || key_data.contains('\n') {
+                    (Some(key_data.clone()), false)
+                }
+                // Likely encrypted - try to decrypt
+                else {
+                    match encryption::decrypt_ssh_key(key_data, encryption_key) {
+                        Ok(decrypted) => {
+                            // Decrypted successfully - it's key content, not a file path
+                            (Some(decrypted), false)
+                        }
+                        Err(_) => {
+                            // If decryption fails, assume it's a file path (backward compatibility)
+                            (Some(key_data.clone()), true)
+                        }
+                    }
+                }
+            } else {
+                (None, false)
+            };
 
             callbacks.credentials(move |_url, username_from_url, _allowed_types| {
-                if let Some(ref key_path) = ssh_key {
-                    Cred::ssh_key(
-                        username_from_url.unwrap_or(&username),
-                        None,
-                        Path::new(key_path),
-                        None,
-                    )
+                if let Some(ref key_data) = ssh_key_data {
+                    if is_file_path {
+                        // File path (backward compatibility)
+                        Cred::ssh_key(
+                            username_from_url.unwrap_or(&username),
+                            None,
+                            Path::new(key_data),
+                            None,
+                        )
+                    } else {
+                        // Plaintext SSH key content (decrypted or original) - use from memory
+                        Cred::ssh_key_from_memory(
+                            username_from_url.unwrap_or(&username),
+                            None,
+                            key_data,
+                            None,
+                        )
+                    }
                 } else {
                     Cred::userpass_plaintext(&username, &password)
                 }

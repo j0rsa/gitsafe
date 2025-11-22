@@ -1,9 +1,10 @@
 use crate::auth::AuthService;
 use crate::config::{Config, Credential, Repository};
+use crate::encryption;
 use crate::error::AppError;
 use crate::git::GitService;
 use crate::middleware::AuthenticatedUser;
-use actix_web::{web, HttpRequest, HttpResponse};
+use actix_web::{web, HttpMessage, HttpRequest, HttpResponse};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -269,7 +270,11 @@ pub async fn sync_repository(
         .as_ref()
         .and_then(|id| config.credentials.get(id));
 
-    let archive_path = state.git_service.sync_repository(repository, credential)?;
+    let archive_path = state.git_service.sync_repository(
+        repository,
+        credential,
+        &config.server.encryption_key,
+    )?;
 
     Ok(HttpResponse::Ok().json(serde_json::json!({
         "message": "Repository synced successfully",
@@ -299,11 +304,28 @@ pub async fn add_credential(
 ) -> Result<HttpResponse, AppError> {
     let mut config = state.config.write().await;
 
+    // Encrypt SSH key if provided
+    let ssh_key = if let Some(ref key) = data.ssh_key {
+        // Check if it's already encrypted (base64 that doesn't start with BEGIN)
+        // or if it's plaintext SSH key content
+        if key.starts_with("-----BEGIN") || key.contains('\n') {
+            // It's plaintext SSH key content - encrypt it
+            Some(encryption::encrypt_ssh_key(key, &config.server.encryption_key)?)
+        } else {
+            // Assume it's a file path (backward compatibility) or already encrypted
+            // For backward compatibility, we'll store file paths as-is
+            // Encrypted keys will be base64 strings that don't start with BEGIN
+            Some(key.clone())
+        }
+    } else {
+        None
+    };
+
     let credential = Credential {
         id: Uuid::new_v4().to_string(),
         username: data.username.clone(),
         password: data.password.clone(),
-        ssh_key: data.ssh_key.clone(),
+        ssh_key,
     };
 
     let response = CredentialResponse {
@@ -325,6 +347,14 @@ pub async fn delete_credential(
 ) -> Result<HttpResponse, AppError> {
     let cred_id = path.into_inner();
     let mut config = state.config.write().await;
+
+    // if the credential is in use, return an error
+    if config.repositories.iter().any(|r| r.credential_id == Some(cred_id)) {
+        return Err(AppError::BadRequest(format!(
+            "Credential {} is in use",
+            cred_id
+        )));
+    }
 
     if config.credentials.remove(&cred_id).is_none() {
         return Err(AppError::NotFound(format!(

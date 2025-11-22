@@ -9,6 +9,7 @@ server:
   host: "127.0.0.1"
   port: 8080
   jwt_secret: "change-me-in-production-use-a-long-random-string"
+  encryption_key: "change-me-in-production-use-a-long-random-string-for-encryption"
 
 storage:
   archive_dir: "./archives"

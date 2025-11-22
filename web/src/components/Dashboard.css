@@ -257,11 +257,14 @@
     justify-content: space-between;
   }
 
-  .repositories-grid,
-  .repositories-grid-wide,
-  .repositories-grid-square {
+  .repositories-grid-wide {
     grid-template-columns: 1fr;
     justify-content: stretch;
+  }
+
+  .repositories-grid-square {
+    grid-template-columns: repeat(2, 48%);
+    justify-content: space-between;
   }
 }
 

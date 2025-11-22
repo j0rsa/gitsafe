@@ -74,6 +74,7 @@ export const Dashboard: React.FC = () => {
   const [syncingRepos, setSyncingRepos] = useState<Set<string>>(new Set())
   const [editingRepoId, setEditingRepoId] = useState<string | null>(null)
   const [showAddDialog, setShowAddDialog] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
 
   // Load initial data (all repositories)
   const loadInitialData = async () => {
@@ -96,6 +97,25 @@ export const Dashboard: React.FC = () => {
   // Initial load
   useEffect(() => {
     loadInitialData()
+  }, [])
+
+  // Detect mobile screen size and auto-switch to square layout
+  useEffect(() => {
+    const checkMobile = () => {
+      const mobile = window.innerWidth <= 768
+      setIsMobile(mobile)
+      // Automatically switch to square layout on mobile
+      if (mobile) {
+        setTileLayout('square')
+      }
+    }
+
+    // Check on mount
+    checkMobile()
+
+    // Listen for resize events
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
 
@@ -274,18 +294,20 @@ export const Dashboard: React.FC = () => {
           >
             + Add Repository
           </button>
-          <div className="tile-layout-selector">
-            <label htmlFor="tile-layout">Tile Layout:</label>
-            <select
-              id="tile-layout"
-              value={tileLayout}
-              onChange={(e) => setTileLayout(e.target.value as TileLayout)}
-              className="layout-select"
-            >
-              <option value="wide">Wide</option>
-              <option value="square">Square</option>
-            </select>
-          </div>
+          {!isMobile && (
+            <div className="tile-layout-selector">
+              <label htmlFor="tile-layout">Tile Layout:</label>
+              <select
+                id="tile-layout"
+                value={tileLayout}
+                onChange={(e) => setTileLayout(e.target.value as TileLayout)}
+                className="layout-select"
+              >
+                <option value="wide">Wide</option>
+                <option value="square">Square</option>
+              </select>
+            </div>
+          )}
         </div>
         <div className={`repositories-grid repositories-grid-${tileLayout}`}>
           {filteredRepositories.length === 0 ? (

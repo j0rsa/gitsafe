@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import type { Repository, TileLayout } from '../types'
 import './RepositoryTile.css'
 
@@ -19,6 +19,10 @@ export const RepositoryTile: React.FC<RepositoryTileProps> = ({
   onDelete,
   onEdit,
 }) => {
+  const [showTooltip, setShowTooltip] = useState(false)
+  const badgeRef = useRef<HTMLSpanElement>(null)
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null)
+
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'Never'
     try {
@@ -28,6 +32,64 @@ export const RepositoryTile: React.FC<RepositoryTileProps> = ({
       return 'Invalid date'
     }
   }
+
+  // Handle touch start on badge (mobile)
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (repository.error) {
+      const touch = e.touches[0]
+      touchStartRef.current = { x: touch.clientX, y: touch.clientY }
+      // Show tooltip on tap
+      setShowTooltip(true)
+    }
+  }
+
+  // Handle touch move (swipe) - hide tooltip
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (touchStartRef.current && showTooltip) {
+      const touch = e.touches[0]
+      const deltaX = Math.abs(touch.clientX - touchStartRef.current.x)
+      const deltaY = Math.abs(touch.clientY - touchStartRef.current.y)
+      
+      // If user moved more than 10px, consider it a swipe/scroll
+      if (deltaX > 10 || deltaY > 10) {
+        setShowTooltip(false)
+        touchStartRef.current = null
+      }
+    }
+  }
+
+  // Handle touch end
+  const handleTouchEnd = () => {
+    touchStartRef.current = null
+  }
+
+  // Hide tooltip on scroll or touch outside
+  useEffect(() => {
+    if (!showTooltip) return
+
+    const handleScroll = () => {
+      setShowTooltip(false)
+    }
+
+    const handleTouchStartOutside = (e: TouchEvent) => {
+      // Hide tooltip if user touches outside the badge
+      if (badgeRef.current && !badgeRef.current.contains(e.target as Node)) {
+        setShowTooltip(false)
+      }
+    }
+
+    // Listen to scroll events on window and parent containers
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    window.addEventListener('touchstart', handleTouchStartOutside, { passive: true })
+    const parentElement = badgeRef.current?.closest('.repositories-grid')
+    parentElement?.addEventListener('scroll', handleScroll, { passive: true })
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll)
+      window.removeEventListener('touchstart', handleTouchStartOutside)
+      parentElement?.removeEventListener('scroll', handleScroll)
+    }
+  }, [showTooltip])
 
   return (
     <div className={`repository-tile repository-tile-${layout} ${repository.enabled ? '' : 'disabled'}`}>
@@ -44,9 +106,18 @@ export const RepositoryTile: React.FC<RepositoryTileProps> = ({
           </a>
         </div>
         <div className="repository-status">
-          <span className={`status-badge ${repository.enabled ? 'active' : 'inactive'}`}>
+          <span
+            ref={badgeRef}
+            className={`status-badge ${repository.enabled ? 'active' : 'inactive'}`}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+          >
             {repository.error && (
-              <span className="status-badge-icon status-badge-icon-tooltip" data-tooltip={repository.error}>
+              <span
+                className={`status-badge-icon status-badge-icon-tooltip ${showTooltip ? 'tooltip-visible' : ''}`}
+                data-tooltip={repository.error}
+              >
                 ⚠️
               </span>
             )}

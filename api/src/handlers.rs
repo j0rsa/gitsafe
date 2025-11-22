@@ -302,20 +302,25 @@ pub async fn add_credential(
     data: web::Json<AddCredentialRequest>,
     state: web::Data<AppState>,
 ) -> Result<HttpResponse, AppError> {
+    // Validate that at least one authentication method is provided
+    let has_password = !data.password.is_empty();
+    let has_ssh_key = data.ssh_key.is_some() && !data.ssh_key.as_ref().unwrap().is_empty();
+    
+    if !has_password && !has_ssh_key {
+        return Err(AppError::BadRequest(
+            "At least one of password or SSH key is required".to_string()
+        ));
+    }
+
     let mut config = state.config.write().await;
 
     // Encrypt SSH key if provided
     let ssh_key = if let Some(ref key) = data.ssh_key {
-        // Check if it's already encrypted (base64 that doesn't start with BEGIN)
-        // or if it's plaintext SSH key content
-        if key.starts_with("-----BEGIN") || key.contains('\n') {
+        if key.is_empty() {
+            None
+        } else if key.starts_with("-----BEGIN") || key.contains('\n') {
             // It's plaintext SSH key content - encrypt it
             Some(encryption::encrypt_ssh_key(key, &config.server.encryption_key)?)
-        } else {
-            // Assume it's a file path (backward compatibility) or already encrypted
-            // For backward compatibility, we'll store file paths as-is
-            // Encrypted keys will be base64 strings that don't start with BEGIN
-            Some(key.clone())
         }
     } else {
         None
@@ -341,6 +346,79 @@ pub async fn add_credential(
     Ok(HttpResponse::Created().json(response))
 }
 
+pub async fn update_credential(
+    path: web::Path<String>,
+    data: web::Json<AddCredentialRequest>,
+    state: web::Data<AppState>,
+) -> Result<HttpResponse, AppError> {
+    let cred_id = path.into_inner();
+    let mut config = state.config.write().await;
+
+    // Get encryption key before mutable borrow
+    let encryption_key = config.server.encryption_key.clone();
+    
+    // Get existing credential data before mutable borrow
+    let existing_credential = config
+        .credentials
+        .get(&cred_id)
+        .ok_or_else(|| AppError::NotFound(format!("Credential {} not found", cred_id)))?
+        .clone();
+
+    let credential = config
+        .credentials
+        .get_mut(&cred_id)
+        .ok_or_else(|| AppError::NotFound(format!("Credential {} not found", cred_id)))?;
+
+    // Determine what's being updated
+    let has_password = !data.password.is_empty();
+    let has_ssh_key = data.ssh_key.is_some() && !data.ssh_key.as_ref().unwrap().is_empty();
+    
+    // Determine what will exist after update
+    let final_password = if has_password {
+        data.password.clone()
+    } else {
+        existing_credential.password.clone()
+    };
+    
+    let final_ssh_key = if has_ssh_key {
+        // SSH key is provided - encrypt and use it
+        let key = data.ssh_key.as_ref().unwrap();
+        if key.starts_with("-----BEGIN") || key.contains('\n') {
+            // It's plaintext SSH key content - encrypt it
+            Some(encryption::encrypt_ssh_key(key, &encryption_key)?)
+        }
+    } else if has_password {
+        // Password is provided but SSH key is not - delete SSH key
+        None
+    } else {
+        // Neither provided - keep existing SSH key
+        existing_credential.ssh_key.clone()
+    };
+    
+    // Validate that at least one authentication method will exist after update
+    if final_password.is_empty() && final_ssh_key.is_none() {
+        return Err(AppError::BadRequest(
+            "At least one of password or SSH key must be provided".to_string()
+        ));
+    }
+
+    // Update the credential
+    credential.username = data.username.clone();
+    credential.password = final_password;
+    credential.ssh_key = final_ssh_key;
+
+    let response = CredentialResponse {
+        id: credential.id.clone(),
+        username: credential.username.clone(),
+    };
+
+    config
+        .save(&state.config_path)
+        .map_err(|e| AppError::ConfigError(e.to_string()))?;
+
+    Ok(HttpResponse::Ok().json(response))
+}
+
 pub async fn delete_credential(
     path: web::Path<String>,
     state: web::Data<AppState>,
@@ -349,7 +427,7 @@ pub async fn delete_credential(
     let mut config = state.config.write().await;
 
     // if the credential is in use, return an error
-    if config.repositories.iter().any(|r| r.credential_id == Some(cred_id)) {
+    if config.repositories.iter().any(|r| r.credential_id == Some(cred_id.clone())) {
         return Err(AppError::BadRequest(format!(
             "Credential {} is in use",
             cred_id

@@ -12,6 +12,12 @@ export interface Credential {
   username: string
 }
 
+export interface CredentialFormData {
+  username: string
+  password?: string | null
+  ssh_key?: string | null
+}
+
 export interface LoginRequest {
   username: string
   password: string

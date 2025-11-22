@@ -24,12 +24,25 @@
   max-width: 400px;
 }
 
-.login-card h2 {
-  margin: 0 0 1.5rem 0;
+.login-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.login-header h2 {
+  margin: 0;
   font-size: 1.75rem;
   font-weight: 700;
   color: #111827;
-  text-align: center;
+}
+
+.login-logo {
+  height: 48px;
+  width: 48px;
+  object-fit: contain;
 }
 
 .form-group {

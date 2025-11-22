@@ -6,6 +6,7 @@ import { FilterPanel } from './FilterPanel'
 import { RepositoryTile } from './RepositoryTile'
 import { RepositoryEditDialog } from './RepositoryEditDialog'
 import { RepositoryAddDialog } from './RepositoryAddDialog'
+import { CredentialManagementDialog } from './CredentialManagementDialog'
 import './Dashboard.css'
 
 // Fuzzy matching function - checks if query characters appear in order in the text
@@ -74,6 +75,7 @@ export const Dashboard: React.FC = () => {
   const [syncingRepos, setSyncingRepos] = useState<Set<string>>(new Set())
   const [editingRepoId, setEditingRepoId] = useState<string | null>(null)
   const [showAddDialog, setShowAddDialog] = useState(false)
+  const [showCredentialDialog, setShowCredentialDialog] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
 
   // Load initial data (all repositories)
@@ -249,9 +251,6 @@ export const Dashboard: React.FC = () => {
   if (initialLoading) {
     return (
       <div className="dashboard">
-        <header className="dashboard-header">
-          <h1>GitSafe - Repository Management</h1>
-        </header>
         <div className="dashboard-content">
           <div className="dashboard-loading">
             <div className="loading-spinner-container">
@@ -277,9 +276,6 @@ export const Dashboard: React.FC = () => {
 
   return (
     <div className="dashboard">
-      <header className="dashboard-header">
-        <h1>GitSafe - Repository Management</h1>
-      </header>
       <div className="dashboard-content">
         <StatsComponent {...stats} />
         <FilterPanel
@@ -288,12 +284,20 @@ export const Dashboard: React.FC = () => {
           urlSuggestions={urlSuggestions}
         />
         <div className="dashboard-controls">
-          <button
-            className="add-repository-btn"
-            onClick={() => setShowAddDialog(true)}
-          >
-            + Add Repository
-          </button>
+          <div className="dashboard-controls-left">
+            <button
+              className="add-repository-btn"
+              onClick={() => setShowAddDialog(true)}
+            >
+              + Add Repository
+            </button>
+            <button
+              className="manage-credentials-btn"
+              onClick={() => setShowCredentialDialog(true)}
+            >
+              Manage Credentials
+            </button>
+          </div>
           {!isMobile && (
             <div className="tile-layout-selector">
               <label htmlFor="tile-layout">Tile Layout:</label>
@@ -343,6 +347,11 @@ export const Dashboard: React.FC = () => {
           onClose={() => setShowAddDialog(false)}
           onSave={handleAddRepository}
           urlSuggestions={urlSuggestions}
+        />
+        <CredentialManagementDialog
+          isOpen={showCredentialDialog}
+          onClose={() => setShowCredentialDialog(false)}
+          onCredentialsChange={loadInitialData}
         />
       </div>
     </div>

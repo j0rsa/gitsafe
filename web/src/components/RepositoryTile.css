@@ -114,7 +114,8 @@
   display: inline-block;
 }
 
-.status-badge-icon-tooltip:hover::after {
+.status-badge-icon-tooltip:hover::after,
+.status-badge-icon-tooltip.tooltip-visible::after {
   content: attr(data-tooltip);
   position: absolute;
   bottom: calc(100% + 0.5rem);
@@ -136,7 +137,8 @@
   animation: tooltipFadeIn 0.2s ease-in;
 }
 
-.status-badge-icon-tooltip:hover::before {
+.status-badge-icon-tooltip:hover::before,
+.status-badge-icon-tooltip.tooltip-visible::before {
   content: '';
   position: absolute;
   bottom: calc(100% + 0.25rem);

@@ -98,7 +98,14 @@
   gap: 1rem;
 }
 
-.add-repository-btn {
+.dashboard-controls-left {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.add-repository-btn,
+.manage-credentials-btn {
   padding: 0.75rem 1.5rem;
   background: #6366f1;
   color: white;
@@ -111,16 +118,30 @@
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
+.manage-credentials-btn {
+  background: #8b5cf6;
+}
+
+.manage-credentials-btn:hover:not(:disabled) {
+  background: #7c3aed;
+}
+
 .add-repository-btn:hover:not(:disabled) {
   background: #4f46e5;
 }
 
-.add-repository-btn:active:not(:disabled) {
+.manage-credentials-btn:hover:not(:disabled) {
+  background: #7c3aed;
+}
+
+.add-repository-btn:active:not(:disabled),
+.manage-credentials-btn:active:not(:disabled) {
   transform: translateY(1px);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
-.add-repository-btn:disabled {
+.add-repository-btn:disabled,
+.manage-credentials-btn:disabled {
   background: #9ca3af;
   color: #f3f4f6;
   cursor: not-allowed;
@@ -248,7 +269,13 @@
     gap: 0.75rem;
   }
 
-  .add-repository-btn {
+  .dashboard-controls-left {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .add-repository-btn,
+  .manage-credentials-btn {
     width: 100%;
   }
 

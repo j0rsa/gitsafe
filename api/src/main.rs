@@ -77,6 +77,7 @@ async fn main() -> std::io::Result<()> {
                     .route("/sync", web::post().to(handlers::sync_repository))
                     .route("/credentials", web::get().to(handlers::list_credentials))
                     .route("/credentials", web::post().to(handlers::add_credential))
+                    .route("/credentials/{id}", web::patch().to(handlers::update_credential))
                     .route("/credentials/{id}", web::delete().to(handlers::delete_credential))
             )
     })

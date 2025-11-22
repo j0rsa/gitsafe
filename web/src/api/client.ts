@@ -114,6 +114,27 @@ class ApiClient {
     return this.request<Credential[]>('/credentials')
   }
 
+  async addCredential(data: { username: string; password: string; ssh_key?: string | null }): Promise<Credential> {
+    return this.request<Credential>('/credentials', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async updateCredential(
+    id: string,
+    data: { username: string; password: string; ssh_key?: string | null }
+  ): Promise<Credential> {
+    return this.request<Credential>(`/credentials/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async deleteCredential(id: string): Promise<void> {
+    await this.request(`/credentials/${id}`, { method: 'DELETE' })
+  }
+
   async deleteRepository(id: string): Promise<void> {
     await this.request(`/repositories/${id}`, { method: 'DELETE' })
   }

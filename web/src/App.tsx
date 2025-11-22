@@ -50,7 +50,10 @@ const App: React.FC = () => {
     return (
       <div className="login-container">
         <div className="login-card">
-          <h2>GitSafe Login</h2>
+          <div className="login-header">
+            <img src="/assets/logo.png" alt="GitSafe Logo" className="login-logo" />
+            <h2>GitSafe Login</h2>
+          </div>
           <form onSubmit={handleLogin}>
             <div className="form-group">
               <label htmlFor="username">Username</label>

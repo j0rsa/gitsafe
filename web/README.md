@@ -27,6 +27,11 @@ Built with [Bun](https://bun.sh) for fast development and builds.
   npm install -g bun
   ```
 
+  Or using brew (if you have Homebrew):
+  ```bash
+  brew tap oven-sh/bun && brew install bun
+  ```
+
 ### Install Dependencies
 
 ```bash

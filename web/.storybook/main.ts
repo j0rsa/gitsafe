@@ -14,6 +14,19 @@ const config: StorybookConfig = {
   docs: {
     autodocs: 'tag',
   },
+  core: {
+    builder: '@storybook/builder-vite',
+  },
+  viteFinal: async (config) => {
+    // Force esbuild to use wasm to avoid platform issues
+    if (config.optimizeDeps) {
+      config.optimizeDeps.esbuildOptions = {
+        ...config.optimizeDeps.esbuildOptions,
+        // This will make Vite use esbuild-wasm if available
+      }
+    }
+    return config
+  },
 }
 
 export default config

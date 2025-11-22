@@ -1,6 +1,8 @@
 # Gitsafe
 
-![](doc/logo.png)
+<p align="center">
+  <img src="doc/logo.png" alt="Gitsafe Logo" />
+</p>
 
 A Rust application designed to fetch Git repositories on a schedule and keep each repository in a separate tarball archive.
 

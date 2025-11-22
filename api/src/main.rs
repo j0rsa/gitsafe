@@ -71,6 +71,7 @@ async fn main() -> std::io::Result<()> {
                     .wrap(AuthMiddleware)
                     .route("/repositories", web::get().to(handlers::list_repositories))
                     .route("/repositories", web::post().to(handlers::add_repository))
+                    .route("/repositories/{id}", web::patch().to(handlers::update_repository))
                     .route("/repositories/{id}", web::delete().to(handlers::delete_repository))
                     .route("/sync", web::post().to(handlers::sync_repository))
                     .route("/credentials", web::get().to(handlers::list_credentials))

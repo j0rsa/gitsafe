@@ -34,6 +34,12 @@ pub struct AddRepositoryRequest {
     pub credential_id: Option<String>,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct UpdateRepositoryRequest {
+    pub enabled: Option<bool>,
+    pub credential_id: Option<String>,
+}
+
 #[derive(Debug, Serialize)]
 pub struct RepositoryResponse {
     pub id: String,
@@ -100,11 +106,6 @@ pub async fn list_repositories(
     query: web::Query<SearchRepositoriesQuery>,
     state: web::Data<AppState>,
 ) -> Result<HttpResponse, AppError> {
-<<<<<<< Updated upstream
-    authenticate(req, state.clone()).await?;
-
-=======
->>>>>>> Stashed changes
     let config = state.config.read().await;
     let mut repositories: Vec<RepositoryResponse> = config
         .repositories
@@ -177,6 +178,52 @@ pub async fn add_repository(
     Ok(HttpResponse::Created().json(response))
 }
 
+pub async fn update_repository(
+    path: web::Path<String>,
+    data: web::Json<UpdateRepositoryRequest>,
+    state: web::Data<AppState>,
+) -> Result<HttpResponse, AppError> {
+    let repo_id = path.into_inner();
+    let mut config = state.config.write().await;
+
+    let repository = config
+        .repositories
+        .iter_mut()
+        .find(|r| r.id == repo_id)
+        .ok_or_else(|| AppError::NotFound(format!("Repository {} not found", repo_id)))?;
+
+    // Update enabled status if provided
+    if let Some(enabled) = data.enabled {
+        repository.enabled = enabled;
+    }
+
+    // Update credential_id if provided
+    // The frontend sends: string (with value), empty string, or null
+    // Empty string or null both mean "no credential"
+    if let Some(ref credential_id) = data.credential_id {
+        if credential_id.trim().is_empty() {
+            repository.credential_id = None;
+        } else {
+            repository.credential_id = Some(credential_id.trim().to_string());
+        }
+    }
+
+    let response = RepositoryResponse {
+        id: repository.id.clone(),
+        url: repository.url.clone(),
+        credential_id: repository.credential_id.clone(),
+        enabled: repository.enabled,
+        last_sync: repository.last_sync,
+        error: repository.error.clone(),
+    };
+
+    config
+        .save(&state.config_path)
+        .map_err(|e| AppError::ConfigError(e.to_string()))?;
+
+    Ok(HttpResponse::Ok().json(response))
+}
+
 pub async fn delete_repository(
     path: web::Path<String>,
     state: web::Data<AppState>,
@@ -233,11 +280,6 @@ pub async fn sync_repository(
 pub async fn list_credentials(
     state: web::Data<AppState>,
 ) -> Result<HttpResponse, AppError> {
-<<<<<<< Updated upstream
-    authenticate(req, state.clone()).await?;
-
-=======
->>>>>>> Stashed changes
     let config = state.config.read().await;
     let credentials: Vec<CredentialResponse> = config
         .credentials

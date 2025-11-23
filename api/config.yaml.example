@@ -10,6 +10,8 @@ server:
   port: 8080
   jwt_secret: "change-me-in-production-use-a-long-random-string"
   encryption_key: "change-me-in-production-use-a-long-random-string-for-encryption"
+  # Number of sync attempts before disabling a repository (default: 5)
+  sync_attempts: 5
   # Optional: List of webhook URLs to notify when sync errors occur
   # error_webhooks:
   #   - "https://example.com/webhook"
@@ -40,7 +42,7 @@ credentials:
   - id: "j0rsa"
     username: "j0rsa"
     password: "password"
-    ssh_key: "/home/j0rsa/.ssh/id_rsa"
+    ssh_key: "some encrypted and base64 encoded ssh key"
 
 users:
   - username: "admin"

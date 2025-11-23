@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react'
 import { Dashboard } from './components/Dashboard'
 import { apiClient } from './api/client'
+import { NotificationContainer } from './components/NotificationContainer'
+import { useNotifications } from './contexts/NotificationContext'
 import './App.css'
 
 const App: React.FC = () => {
@@ -8,7 +10,7 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true)
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const [loginError, setLoginError] = useState<string | null>(null)
+  const { showError, notifications, dismissNotification } = useNotifications()
 
   useEffect(() => {
     // Check if we have a stored token
@@ -24,7 +26,7 @@ const App: React.FC = () => {
           setIsAuthenticated(true)
         } catch (err) {
           // Auto-login failed, show login form
-          setLoginError(null) // Don't show error for auto-login failure
+          // Don't show error for auto-login failure
         } finally {
           setIsLoading(false)
         }
@@ -35,12 +37,12 @@ const App: React.FC = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
-    setLoginError(null)
     try {
       await apiClient.login({ username, password })
       setIsAuthenticated(true)
     } catch (err) {
-      setLoginError(err instanceof Error ? err.message : 'Login failed')
+      const errorMessage = err instanceof Error ? err.message : 'Login failed'
+      showError(errorMessage)
       apiClient.clearToken()
     }
   }
@@ -84,7 +86,6 @@ const App: React.FC = () => {
                 required
               />
             </div>
-            {loginError && <div className="error-message">{loginError}</div>}
             <button type="submit" className="login-btn">
               Login
             </button>
@@ -97,6 +98,7 @@ const App: React.FC = () => {
   return (
     <div className="app">
       <Dashboard />
+      <NotificationContainer notifications={notifications} onDismiss={dismissNotification} />
     </div>
   )
 }

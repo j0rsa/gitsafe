@@ -1,6 +1,7 @@
 use actix_web::{test, web, App};
 use gitsafe::auth::AuthService;
 use gitsafe::config::{Config, User};
+use gitsafe::config_persistence::ConfigPersistence;
 use gitsafe::git::GitService;
 use gitsafe::handlers::{health_check, login, AppState, LoginRequest};
 use std::sync::Arc;
@@ -32,12 +33,14 @@ async fn test_login_success() {
     });
 
     let git_service = GitService::new(temp_dir.path(), true).unwrap();
+    let config_persistence = ConfigPersistence::new(config_path.to_string_lossy().to_string());
 
     let app_state = web::Data::new(AppState {
         config: Arc::new(RwLock::new(config)),
         config_path: config_path.to_string_lossy().to_string(),
         auth_service,
         git_service,
+        config_persistence,
     });
 
     let app = test::init_service(
@@ -76,12 +79,14 @@ async fn test_login_failure() {
     });
 
     let git_service = GitService::new(temp_dir.path(), true).unwrap();
+    let config_persistence = ConfigPersistence::new(config_path.to_string_lossy().to_string());
 
     let app_state = web::Data::new(AppState {
         config: Arc::new(RwLock::new(config)),
         config_path: config_path.to_string_lossy().to_string(),
         auth_service,
         git_service,
+        config_persistence,
     });
 
     let app = test::init_service(

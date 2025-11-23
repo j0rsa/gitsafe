@@ -1,15 +1,81 @@
 use crate::auth::AuthService;
 use crate::config::{Config, Credential, Repository};
+use crate::config_persistence::ConfigPersistence;
 use crate::encryption;
 use crate::error::AppError;
 use crate::git::GitService;
 use crate::middleware::AuthenticatedUser;
 use crate::webhooks;
 use actix_web::{web, HttpMessage, HttpRequest, HttpResponse};
+use log::info;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use uuid::Uuid;
+
+/// Handles sync failure by updating attempts_left and potentially disabling the repository.
+///
+/// Returns true if the repository was disabled (ran out of attempts), false otherwise.
+async fn handle_sync_failure(
+    repo: &mut Repository,
+    error_message: &str,
+    sync_attempts: u32,
+    webhook_urls: &[String],
+) -> bool {
+    // Initialize or decrement attempts_left
+    let attempts_left = if let Some(attempts) = repo.attempts_left {
+        if attempts > 0 {
+            attempts - 1
+        } else {
+            0 // Already at 0, shouldn't happen but handle gracefully
+        }
+    } else {
+        // First failure: set to sync_attempts - 1
+        sync_attempts - 1
+    };
+
+    repo.attempts_left = Some(attempts_left);
+    repo.error = Some(error_message.to_string());
+
+    // Check if we've run out of attempts
+    if attempts_left == 0 {
+        // Reset attempts_left to None and disable the repository
+        repo.attempts_left = None;
+        repo.enabled = false;
+
+        info!(
+            "Repository {} ran out of sync attempts and has been disabled",
+            repo.id
+        );
+
+        // Notify webhooks about running out of attempts
+        webhooks::notify_out_of_attempts_webhooks(
+            webhook_urls,
+            repo,
+            repo.credential_id.as_ref(),
+            error_message,
+            sync_attempts,
+        )
+        .await;
+
+        return true;
+    }
+
+    false
+}
+
+/// Handles successful sync by resetting attempts_left and clearing error.
+fn handle_sync_success(repo: &mut Repository) {
+    // Reset attempts_left to None on successful sync (recovered from errors)
+    if repo.attempts_left.is_some() {
+        info!(
+            "Repository {} recovered from error spree, resetting attempts",
+            repo.id
+        );
+        repo.attempts_left = None;
+    }
+    repo.error = None;
+}
 
 /// Application state shared across all request handlers.
 ///
@@ -24,6 +90,8 @@ pub struct AppState {
     pub auth_service: AuthService,
     /// Git service for repository operations
     pub git_service: GitService,
+    /// Config persistence manager for debounced saves
+    pub config_persistence: ConfigPersistence,
 }
 
 // Request/Response types
@@ -51,7 +119,7 @@ pub struct AddRepositoryRequest {
     pub url: String,
     /// Optional credential ID for authenticated access
     pub credential_id: Option<String>,
-    /// Optional repository ID. If not provided, will be generated from URL using repo_name_from_url logic
+    /// Optional repository ID. If not provided, will be generated from URL using repo_id_from_url logic
     pub id: Option<String>,
 }
 
@@ -77,6 +145,8 @@ pub struct RepositoryResponse {
     pub error: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub size: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub attempts_left: Option<u32>,
 }
 
 /// Request payload for adding a new credential.
@@ -177,6 +247,7 @@ pub async fn list_repositories(
             last_sync: r.last_sync,
             error: r.error.clone(),
             size: r.size,
+            attempts_left: r.attempts_left,
         })
         .collect();
 
@@ -212,7 +283,7 @@ pub async fn add_repository(
 ) -> Result<HttpResponse, AppError> {
     let mut config = state.config.write().await;
 
-    // Use provided ID or generate from URL using repo_name_from_url logic
+    // Use provided ID or generate from URL using repo_id_from_url logic (with dashes)
     let repo_id = if let Some(ref id) = data.id {
         if id.trim().is_empty() {
             return Err(AppError::BadRequest(
@@ -221,7 +292,7 @@ pub async fn add_repository(
         }
         id.trim().to_string()
     } else {
-        crate::git::GitService::repo_name_from_url(&data.url)
+        crate::git::GitService::repo_id_from_url(&data.url)
     };
 
     // Check if ID already exists (for both provided and auto-generated IDs)
@@ -240,6 +311,7 @@ pub async fn add_repository(
         last_sync: None,
         error: None,
         size: None,
+        attempts_left: None,
     };
 
     let response = RepositoryResponse {
@@ -250,12 +322,13 @@ pub async fn add_repository(
         last_sync: repository.last_sync,
         error: repository.error.clone(),
         size: repository.size,
+        attempts_left: repository.attempts_left,
     };
 
     config.repositories.push(repository);
-    config
-        .save(&state.config_path)
-        .map_err(|e| AppError::ConfigError(e.to_string()))?;
+    let config_to_save = config.clone();
+    drop(config); // Release lock before async operation
+    state.config_persistence.request_save(config_to_save);
 
     Ok(HttpResponse::Created().json(response))
 }
@@ -298,11 +371,12 @@ pub async fn update_repository(
         last_sync: repository.last_sync,
         error: repository.error.clone(),
         size: repository.size,
+        attempts_left: repository.attempts_left,
     };
 
-    config
-        .save(&state.config_path)
-        .map_err(|e| AppError::ConfigError(e.to_string()))?;
+    let config_to_save = config.clone();
+    drop(config); // Release lock before async operation
+    state.config_persistence.request_save(config_to_save);
 
     Ok(HttpResponse::Ok().json(response))
 }
@@ -324,9 +398,9 @@ pub async fn delete_repository(
         )));
     }
 
-    config
-        .save(&state.config_path)
-        .map_err(|e| AppError::ConfigError(e.to_string()))?;
+    let config_to_save = config.clone();
+    drop(config); // Release lock before async operation
+    state.config_persistence.request_save(config_to_save);
 
     Ok(HttpResponse::NoContent().finish())
 }
@@ -339,10 +413,10 @@ pub async fn sync_repository(
     let repository_id = data.repository_id.clone();
     let git_service = state.git_service.clone();
     let config_arc = Arc::clone(&state.config);
-    let config_path = state.config_path.clone();
+    let config_persistence = state.config_persistence.clone();
 
     // Read config to get repository and credential info
-    let (repository, repository_for_sync, credential, encryption_key, webhooks) = {
+    let (repository, repository_for_sync, credential, encryption_key, webhooks, sync_attempts) = {
         let config = state.config.read().await;
         let repository = config
             .repositories
@@ -362,12 +436,14 @@ pub async fn sync_repository(
             .and_then(|id| config.credentials.get(id).cloned());
         let encryption_key = config.server.encryption_key.clone();
         let webhooks = config.server.error_webhooks.clone();
+        let sync_attempts = config.server.sync_attempts;
         (
             repository,
             repository_for_sync,
             credential,
             encryption_key,
             webhooks,
+            sync_attempts,
         )
     }; // Release lock before blocking operation
 
@@ -382,32 +458,66 @@ pub async fn sync_repository(
     let (archive_path, archive_size) = match sync_result {
         Ok(result) => result,
         Err(e) => {
+            let error_message = e.to_string();
+
             // Notify webhooks about the error
             webhooks::notify_error_webhooks(
                 &webhooks,
                 &repository,
                 "sync",
                 repository.credential_id.as_ref(),
-                &e.to_string(),
+                &error_message,
             )
             .await;
-            return Err(e);
+
+            // Handle sync failure (update attempts_left, potentially disable repo)
+            let mut config = config_arc.write().await;
+            let (was_disabled, config_to_save) = if let Some(repo) = config
+                .repositories
+                .iter_mut()
+                .find(|r| r.id == repository_id)
+            {
+                let disabled =
+                    handle_sync_failure(repo, &error_message, sync_attempts, &webhooks).await;
+                (disabled, Some(config.clone()))
+            } else {
+                (false, None)
+            };
+            drop(config); // Release lock before async operation
+
+            if let Some(config_data) = config_to_save {
+                config_persistence.request_save(config_data);
+            }
+
+            if was_disabled {
+                return Err(AppError::BadRequest(format!(
+                    "Repository {} ran out of sync attempts and has been disabled",
+                    repository_id
+                )));
+            }
+
+            return Err(AppError::InternalError(error_message));
         }
     };
 
-    // Update repository size and last_sync
+    // Update repository size and last_sync on success
     let mut config = config_arc.write().await;
-    if let Some(repo) = config
+    let config_to_save = if let Some(repo) = config
         .repositories
         .iter_mut()
         .find(|r| r.id == repository_id)
     {
         repo.size = Some(archive_size);
         repo.last_sync = Some(chrono::Utc::now());
-        repo.error = None;
-        config
-            .save(&config_path)
-            .map_err(|e| AppError::ConfigError(e.to_string()))?;
+        handle_sync_success(repo);
+        Some(config.clone())
+    } else {
+        None
+    };
+    drop(config); // Release lock before async operation
+
+    if let Some(config_data) = config_to_save {
+        config_persistence.request_save(config_data);
     }
 
     Ok(HttpResponse::Ok().json(serde_json::json!({
@@ -505,9 +615,9 @@ pub async fn add_credential(
     };
 
     config.credentials.insert(credential.id.clone(), credential);
-    config
-        .save(&state.config_path)
-        .map_err(|e| AppError::ConfigError(e.to_string()))?;
+    let config_to_save = config.clone();
+    drop(config); // Release lock before async operation
+    state.config_persistence.request_save(config_to_save);
 
     Ok(HttpResponse::Created().json(response))
 }
@@ -590,9 +700,9 @@ pub async fn update_credential(
         username: credential.username.clone(),
     };
 
-    config
-        .save(&state.config_path)
-        .map_err(|e| AppError::ConfigError(e.to_string()))?;
+    let config_to_save = config.clone();
+    drop(config); // Release lock before async operation
+    state.config_persistence.request_save(config_to_save);
 
     Ok(HttpResponse::Ok().json(response))
 }
@@ -623,9 +733,9 @@ pub async fn delete_credential(
         )));
     }
 
-    config
-        .save(&state.config_path)
-        .map_err(|e| AppError::ConfigError(e.to_string()))?;
+    let config_to_save = config.clone();
+    drop(config); // Release lock before async operation
+    state.config_persistence.request_save(config_to_save);
 
     Ok(HttpResponse::NoContent().finish())
 }

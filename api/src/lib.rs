@@ -9,6 +9,7 @@
 
 pub mod auth;
 pub mod config;
+pub mod config_persistence;
 pub mod encryption;
 pub mod error;
 pub mod git;

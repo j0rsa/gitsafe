@@ -32,6 +32,7 @@ fn test_config_serialization() {
         enabled: true,
         last_sync: None,
         error: None,
+        attempts_left: None,
     });
 
     // Add a credential
@@ -68,6 +69,7 @@ fn test_repository_creation() {
         enabled: true,
         last_sync: None,
         error: None,
+        attempts_left: None,
     };
 
     assert_eq!(repo.id, "test-id");
@@ -152,6 +154,7 @@ fn test_config_save_and_load() {
         enabled: true,
         last_sync: None,
         error: None,
+        attempts_left: None,
     });
 
     // Save config

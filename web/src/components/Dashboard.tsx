@@ -7,6 +7,7 @@ import { RepositoryTile } from './RepositoryTile'
 import { RepositoryEditDialog } from './RepositoryEditDialog'
 import { RepositoryAddDialog } from './RepositoryAddDialog'
 import { CredentialManagementDialog } from './CredentialManagementDialog'
+import { useNotifications } from '../contexts/NotificationContext'
 import './Dashboard.css'
 
 // Fuzzy matching function - checks if query characters appear in order in the text
@@ -77,6 +78,7 @@ export const Dashboard: React.FC = () => {
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [showCredentialDialog, setShowCredentialDialog] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
+  const { showError, showInfo } = useNotifications()
 
   // Load initial data (all repositories)
   const loadInitialData = async () => {
@@ -90,7 +92,9 @@ export const Dashboard: React.FC = () => {
       setAllRepositories(repos)
       setCredentials(creds)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load data')
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load data'
+      setError(errorMessage)
+      showError(errorMessage)
     } finally {
       setInitialLoading(false)
     }
@@ -202,8 +206,10 @@ export const Dashboard: React.FC = () => {
       await apiClient.syncRepository(id)
       // Reload data to get updated repository state
       await loadInitialData()
+      showInfo('Repository synced successfully')
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to sync repository')
+      const errorMessage = err instanceof Error ? err.message : 'Failed to sync repository'
+      showError(errorMessage)
     } finally {
       setSyncingRepos((prev) => {
         const next = new Set(prev)
@@ -221,8 +227,10 @@ export const Dashboard: React.FC = () => {
       await apiClient.deleteRepository(id)
       // Reload data to remove deleted repository
       await loadInitialData()
+      showInfo('Repository deleted successfully')
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to delete repository')
+      const errorMessage = err instanceof Error ? err.message : 'Failed to delete repository'
+      showError(errorMessage)
     }
   }
 
@@ -244,9 +252,29 @@ export const Dashboard: React.FC = () => {
 
   const handleAddRepository = async (data: { url: string; credential_id: string | null; id: string | null }) => {
     try {
-      await apiClient.addRepository(data)
+      const newRepo = await apiClient.addRepository(data)
       await loadInitialData()
       setShowAddDialog(false)
+      
+      // Immediately sync the newly added repository
+      if (newRepo.id) {
+        try {
+          setSyncingRepos((prev) => new Set(prev).add(newRepo.id))
+          await apiClient.syncRepository(newRepo.id)
+          await loadInitialData() // Reload to get updated sync status
+        } catch (syncErr) {
+          // Sync error is not critical - repository was added successfully
+          // The error will be shown in the repository tile
+          console.error('Failed to sync repository after adding:', syncErr)
+          await loadInitialData() // Still reload to show the repository
+        } finally {
+          setSyncingRepos((prev) => {
+            const next = new Set(prev)
+            next.delete(newRepo.id)
+            return next
+          })
+        }
+      }
     } catch (err) {
       throw err
     }

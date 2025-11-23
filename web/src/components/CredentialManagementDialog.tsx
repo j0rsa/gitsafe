@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import type { Credential } from '../types'
 import { apiClient } from '../api/client'
+import { useNotifications } from '../contexts/NotificationContext'
 import './CredentialManagementDialog.css'
 
 export interface CredentialManagementDialogProps {
@@ -20,6 +21,7 @@ export const CredentialManagementDialog: React.FC<CredentialManagementDialogProp
   const [error, setError] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const { showError, showInfo } = useNotifications()
   const [formData, setFormData] = useState<{
     id: string
     username: string
@@ -50,7 +52,9 @@ export const CredentialManagementDialog: React.FC<CredentialManagementDialogProp
       const creds = await apiClient.getCredentials()
       setCredentials(creds)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load credentials')
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load credentials'
+      setError(errorMessage)
+      showError(errorMessage)
     } finally {
       setLoading(false)
     }
@@ -140,9 +144,11 @@ export const CredentialManagementDialog: React.FC<CredentialManagementDialogProp
       await loadCredentials()
       resetForm()
       onCredentialsChange?.()
+      showInfo(editingId ? 'Credential updated successfully' : 'Credential added successfully')
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to save credential'
       setError(errorMessage)
+      showError(errorMessage)
       // Check if error is about ID collision
       if (errorMessage.includes('already exists')) {
         setIdError(errorMessage)
@@ -163,8 +169,11 @@ export const CredentialManagementDialog: React.FC<CredentialManagementDialogProp
       await apiClient.deleteCredential(id)
       await loadCredentials()
       onCredentialsChange?.()
+      showInfo('Credential deleted successfully')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete credential')
+      const errorMessage = err instanceof Error ? err.message : 'Failed to delete credential'
+      setError(errorMessage)
+      showError(errorMessage)
     } finally {
       setDeletingId(null)
     }

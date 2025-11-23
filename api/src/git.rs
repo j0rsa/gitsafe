@@ -9,6 +9,7 @@ use log::info;
 use std::fs::{self, File};
 use std::path::{Path, PathBuf};
 use tar::{Archive, Builder};
+use uuid::Uuid;
 
 /// Service for managing Git repository synchronization and archiving.
 ///
@@ -57,9 +58,9 @@ impl GitService {
         })
     }
 
-    /// Generates a repository name from a Git URL.
+    /// Generates a repository ID from a Git URL (for use as identifier).
     ///
-    /// The name is constructed by:
+    /// The ID is constructed by:
     /// 1. Extracting the domain and replacing dots with underscores
     /// 2. Extracting path segments (user/org and repository name)
     /// 3. Joining all parts with dashes
@@ -71,21 +72,20 @@ impl GitService {
     ///
     /// # Returns
     ///
-    /// A string representation of the repository name suitable for use as a
-    /// filename or directory name.
+    /// A string representation of the repository ID suitable for use as an identifier.
     ///
     /// # Examples
     ///
     /// ```
     /// use gitsafe::git::GitService;
     ///
-    /// let name = GitService::repo_name_from_url("https://github.com/example/repo1");
-    /// assert_eq!(name, "github_com-example-repo1");
+    /// let id = GitService::repo_id_from_url("https://github.com/example/repo1");
+    /// assert_eq!(id, "github_com-example-repo1");
     ///
-    /// let name = GitService::repo_name_from_url("https://gitlab.com/user/org/my-repo.git");
-    /// assert_eq!(name, "gitlab_com-user-org-my-repo");
+    /// let id = GitService::repo_id_from_url("https://gitlab.com/user/org/my-repo.git");
+    /// assert_eq!(id, "gitlab_com-user-org-my-repo");
     /// ```
-    pub fn repo_name_from_url(url: &str) -> String {
+    pub fn repo_id_from_url(url: &str) -> String {
         let mut parts = Vec::new();
 
         // Parse URL
@@ -132,6 +132,97 @@ impl GitService {
         parts.join("-")
     }
 
+    /// Generates a repository storage path from a Git URL, preserving directory hierarchy.
+    ///
+    /// The path is constructed by:
+    /// 1. Extracting the domain and replacing dots with underscores
+    /// 2. Extracting path segments (user/org and repository name)
+    /// 3. Joining all parts with forward slashes to preserve hierarchy
+    /// 4. Removing `.git` suffix if present
+    /// 5. If `compact` is true, appends `.tar.gz` extension for archive path
+    ///
+    /// # Arguments
+    ///
+    /// * `url` - The Git repository URL
+    /// * `compact` - If true, returns path to archive file (with `.tar.gz` extension).
+    ///   If false, returns path to repository directory.
+    ///
+    /// # Returns
+    ///
+    /// A string representation of the repository path with directory separators,
+    /// suitable for use as a nested directory path for storage.
+    /// - Compact mode: `github_com/example/repo1.tar.gz`
+    /// - Non-compact mode: `github_com/example/repo1`
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use gitsafe::git::GitService;
+    ///
+    /// // Compact mode - returns archive path
+    /// let path = GitService::repo_path_from_url("https://github.com/example/repo1", true);
+    /// assert_eq!(path, "github_com/example/repo1.tar.gz");
+    ///
+    /// // Non-compact mode - returns directory path
+    /// let path = GitService::repo_path_from_url("https://github.com/example/repo1", false);
+    /// assert_eq!(path, "github_com/example/repo1");
+    ///
+    /// let path = GitService::repo_path_from_url("https://gitlab.com/user/org/my-repo.git", true);
+    /// assert_eq!(path, "gitlab_com/user/org/my-repo.tar.gz");
+    /// ```
+    pub fn repo_path_from_url(url: &str, compact: bool) -> String {
+        let mut parts = Vec::new();
+
+        // Parse URL
+        if let Ok(parsed) = url::Url::parse(url) {
+            // Extract domain (replace dots with underscores)
+            if let Some(host) = parsed.host_str() {
+                let domain = host.replace('.', "_");
+                parts.push(domain);
+            }
+
+            // Extract path segments (user/org and repo name)
+            let path_segments: Vec<&str> = parsed
+                .path_segments()
+                .map(|s| s.collect())
+                .unwrap_or_default();
+
+            for segment in path_segments {
+                if !segment.is_empty() {
+                    // Remove .git suffix if present
+                    let clean_segment = segment.strip_suffix(".git").unwrap_or(segment);
+                    parts.push(clean_segment.to_string());
+                }
+            }
+        } else {
+            // Fallback: try to extract manually
+            if let Some(domain_start) = url.find("://") {
+                let after_protocol = &url[domain_start + 3..];
+                if let Some(path_start) = after_protocol.find('/') {
+                    let domain = after_protocol[..path_start].replace('.', "_");
+                    parts.push(domain);
+
+                    let path = &after_protocol[path_start + 1..];
+                    let path_segments: Vec<&str> = path.split('/').collect();
+                    for segment in path_segments {
+                        if !segment.is_empty() {
+                            let clean_segment = segment.strip_suffix(".git").unwrap_or(segment);
+                            parts.push(clean_segment.to_string());
+                        }
+                    }
+                }
+            }
+        }
+
+        let base_path = parts.join("/");
+
+        if compact {
+            format!("{}.tar.gz", base_path)
+        } else {
+            base_path
+        }
+    }
+
     /// Synchronizes a Git repository, updating it with the latest changes from the remote.
     ///
     /// The behavior depends on the `compact` mode:
@@ -175,6 +266,7 @@ impl GitService {
     ///     last_sync: None,
     ///     error: None,
     ///     size: None,
+    ///     attempts_left: None,
     /// };
     /// let (path, size) = service.sync_repository(&repo, None, "encryption-key")?;
     /// # Ok::<(), Box<dyn std::error::Error>>(())
@@ -187,12 +279,14 @@ impl GitService {
     ) -> Result<(PathBuf, u64), AppError> {
         info!("Syncing repository: {} ({})", repo.id, repo.url);
 
-        let repo_name = Self::repo_name_from_url(&repo.url);
+        // Use repo_path_from_url for storage paths (with slashes)
+        // Pass compact mode to get correct path (archive or directory)
+        let repo_path = Self::repo_path_from_url(&repo.url, self.compact);
 
         if self.compact {
-            self.sync_repository_compact(repo, &repo_name, credential, encryption_key)
+            self.sync_repository_compact(repo, &repo_path, credential, encryption_key)
         } else {
-            self.sync_repository_non_compact(repo, &repo_name, credential, encryption_key)
+            self.sync_repository_non_compact(repo, &repo_path, credential, encryption_key)
         }
     }
 
@@ -209,7 +303,7 @@ impl GitService {
     /// # Arguments
     ///
     /// * `repo` - The repository configuration
-    /// * `repo_name` - The generated repository name (from URL)
+    /// * `repo_path_str` - The generated repository path (from URL, includes .tar.gz extension)
     /// * `credential` - Optional credential for authentication
     /// * `encryption_key` - Key for decrypting SSH keys
     ///
@@ -219,16 +313,29 @@ impl GitService {
     fn sync_repository_compact(
         &self,
         repo: &Repository,
-        repo_name: &str,
+        repo_path_str: &str,
         credential: Option<&Credential>,
         encryption_key: &str,
     ) -> Result<(PathBuf, u64), AppError> {
-        let archive_name = format!("{}.tar.gz", repo_name);
-        let archive_path = self.archive_dir.join(&archive_name);
+        // repo_path_str already includes .tar.gz extension from repo_path_from_url
+        let archive_path = self.archive_dir.join(repo_path_str);
+
+        // Ensure parent directories exist
+        if let Some(parent) = archive_path.parent() {
+            fs::create_dir_all(parent)?;
+        }
 
         let temp_dir = tempfile::tempdir().map_err(AppError::IoError)?;
         let work_dir = temp_dir.path();
-        let repo_path = work_dir.join(repo_name);
+        // Extract just the repo name (last segment before .tar.gz) for the working directory
+        let repo_path_without_ext = repo_path_str
+            .strip_suffix(".tar.gz")
+            .unwrap_or(repo_path_str);
+        let repo_name_only = repo_path_without_ext
+            .split('/')
+            .next_back()
+            .unwrap_or(repo_path_without_ext);
+        let repo_path = work_dir.join(repo_name_only);
 
         // If archive exists, unpack it first
         if archive_path.exists() {
@@ -249,8 +356,9 @@ impl GitService {
             self.clone_repository(&repo.url, &repo_path, credential, encryption_key)?;
         }
 
-        // Create new archive
-        let new_archive_path = self.create_archive(repo_name, &repo_path)?;
+        // Create new archive (use repo_name_only for archive contents, but store at repo_name path)
+        // Pass the final archive path so temp archive is created in the same directory
+        let new_archive_path = self.create_archive(repo_name_only, &repo_path, &archive_path)?;
 
         // Calculate archive size
         let archive_size = fs::metadata(&new_archive_path)
@@ -258,6 +366,10 @@ impl GitService {
             .unwrap_or(0);
 
         // Replace old archive with new one
+        // Ensure parent directory exists before moving
+        if let Some(parent) = archive_path.parent() {
+            fs::create_dir_all(parent)?;
+        }
         if archive_path.exists() {
             fs::remove_file(&archive_path)?;
         }
@@ -286,7 +398,7 @@ impl GitService {
     /// # Arguments
     ///
     /// * `repo` - The repository configuration
-    /// * `repo_name` - The generated repository name (from URL)
+    /// * `repo_path_str` - The generated repository path (from URL, directory path without .tar.gz)
     /// * `credential` - Optional credential for authentication
     /// * `encryption_key` - Key for decrypting SSH keys
     ///
@@ -296,11 +408,17 @@ impl GitService {
     fn sync_repository_non_compact(
         &self,
         repo: &Repository,
-        repo_name: &str,
+        repo_path_str: &str,
         credential: Option<&Credential>,
         encryption_key: &str,
     ) -> Result<(PathBuf, u64), AppError> {
-        let repo_path = self.archive_dir.join(repo_name);
+        // Create nested directory structure for repository
+        let repo_path = self.archive_dir.join(repo_path_str);
+
+        // Ensure parent directories exist
+        if let Some(parent) = repo_path.parent() {
+            fs::create_dir_all(parent)?;
+        }
 
         // Clone or pull the repository
         if repo_path.exists() && repo_path.join(".git").exists() {
@@ -673,8 +791,9 @@ impl GitService {
     ///
     /// # Arguments
     ///
-    /// * `repo_name` - Name of the repository (used as the archive entry name)
+    /// * `repo_name` - Name of the repository (used as the archive entry name, should be just the repo name, not the full path)
     /// * `repo_path` - Path to the repository directory to archive
+    /// * `final_archive_path` - Path where the final archive will be stored (used to determine temp archive location)
     ///
     /// # Returns
     ///
@@ -686,9 +805,23 @@ impl GitService {
     /// - Archive file cannot be created
     /// - Directory reading fails
     /// - Compression fails
-    fn create_archive(&self, repo_name: &str, repo_path: &Path) -> Result<PathBuf, AppError> {
-        let temp_archive_name = format!("{}.tmp.tar.gz", repo_name);
-        let temp_archive_path = self.archive_dir.join(&temp_archive_name);
+    fn create_archive(
+        &self,
+        repo_name: &str,
+        repo_path: &Path,
+        final_archive_path: &Path,
+    ) -> Result<PathBuf, AppError> {
+        // Create temp archive in the same directory as the final archive
+        let temp_archive_name = format!("{}.tmp.tar.gz", Uuid::new_v4());
+        let temp_archive_path = final_archive_path
+            .parent()
+            .unwrap_or(&self.archive_dir)
+            .join(&temp_archive_name);
+
+        // Ensure parent directory exists
+        if let Some(parent) = temp_archive_path.parent() {
+            fs::create_dir_all(parent)?;
+        }
 
         let tar_gz = File::create(&temp_archive_path)?;
         let enc = GzEncoder::new(tar_gz, Compression::default());

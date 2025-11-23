@@ -38,6 +38,13 @@ pub struct ServerConfig {
     #[serde(default = "default_skip_auth")]
     /// If true, authentication is bypassed and all login attempts succeed
     pub skip_auth: bool,
+    #[serde(default = "default_sync_attempts")]
+    /// Number of sync attempts before disabling a repository
+    pub sync_attempts: u32,
+}
+
+fn default_sync_attempts() -> u32 {
+    5
 }
 
 fn default_skip_auth() -> bool {
@@ -81,6 +88,10 @@ pub struct Repository {
     #[serde(skip_serializing_if = "Option::is_none")]
     /// Repository size in bytes (archive size or folder size)
     pub size: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    /// Number of sync attempts remaining before the repository is disabled
+    /// None means no error has occurred or the repository has recovered
+    pub attempts_left: Option<u32>,
 }
 
 /// Git credential configuration for authenticated repository access.
@@ -227,6 +238,7 @@ impl Default for Config {
                 encryption_key: default_encryption_key(),
                 error_webhooks: Vec::new(),
                 skip_auth: false,
+                sync_attempts: 5,
             },
             storage: StorageConfig {
                 archive_dir: "./archives".to_string(),

@@ -68,18 +68,18 @@ export function formatRelativeTime(dateString: string | null): string {
 }
 
 /**
- * Generates a repository name from a Git URL.
+ * Generates a repository ID from a Git URL (for use as identifier).
  * 
- * Matches the logic from api/src/git.rs::repo_name_from_url
+ * Matches the logic from api/src/git.rs::repo_id_from_url
  * 
- * The name is constructed by:
+ * The ID is constructed by:
  * 1. Extracting the domain and replacing dots with underscores
  * 2. Extracting path segments (user/org and repository name)
  * 3. Joining all parts with dashes
  * 4. Removing .git suffix if present
  * 
  * @param url - The Git repository URL
- * @returns A string representation of the repository name suitable for use as a filename or directory name
+ * @returns A string representation of the repository ID suitable for use as an identifier
  * 
  * @example
  * repoNameFromUrl("https://github.com/example/repo1")

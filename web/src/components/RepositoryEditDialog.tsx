@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import type { Repository, Credential } from '../types'
 import { Autocomplete } from './Autocomplete'
+import { useNotifications } from '../contexts/NotificationContext'
 import './RepositoryEditDialog.css'
 
 export interface RepositoryEditDialogProps {
@@ -24,6 +25,7 @@ export const RepositoryEditDialog: React.FC<RepositoryEditDialogProps> = ({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [credentialError, setCredentialError] = useState<string | null>(null)
+  const { showError, showInfo } = useNotifications()
 
   useEffect(() => {
     if (isOpen) {
@@ -65,9 +67,12 @@ export const RepositoryEditDialog: React.FC<RepositoryEditDialogProps> = ({
         enabled,
         credential_id: credentialId.trim() || null,
       })
+      showInfo('Repository updated successfully')
       onClose()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update repository')
+      const errorMessage = err instanceof Error ? err.message : 'Failed to update repository'
+      setError(errorMessage)
+      showError(errorMessage)
     } finally {
       setSaving(false)
     }

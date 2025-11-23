@@ -12,6 +12,7 @@ fn test_error_webhook_payload_serialization() {
         last_sync: Some(Utc::now()),
         error: None,
         size: Some(1024),
+        attempts_left: None,
     };
 
     let payload = ErrorWebhookPayload {
@@ -48,6 +49,7 @@ fn test_error_webhook_payload_without_credential() {
         last_sync: None,
         error: None,
         size: None,
+        attempts_left: None,
     };
 
     let payload = ErrorWebhookPayload {
@@ -99,6 +101,7 @@ async fn test_notify_error_webhooks_empty_list() {
         last_sync: None,
         error: None,
         size: None,
+        attempts_left: None,
     };
 
     // Should not panic or error with empty webhook list

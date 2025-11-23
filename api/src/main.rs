@@ -1,5 +1,6 @@
 pub mod auth;
 pub mod config;
+pub mod config_persistence;
 pub mod encryption;
 pub mod error;
 pub mod git;
@@ -73,10 +74,17 @@ async fn main() -> std::io::Result<()> {
         git::GitService::new(&archive_dir, compact).expect("Failed to create git service");
     let git_service_arc = Arc::new(git_service);
 
+    // Create config persistence manager
+    let config_persistence = config_persistence::ConfigPersistence::new(config_path.clone());
+
     // Setup scheduler
-    let _scheduler = scheduler::setup_scheduler(Arc::clone(&config), Arc::clone(&git_service_arc))
-        .await
-        .expect("Failed to setup scheduler");
+    let _scheduler = scheduler::setup_scheduler(
+        Arc::clone(&config),
+        Arc::clone(&git_service_arc),
+        config_persistence.clone(),
+    )
+    .await
+    .expect("Failed to setup scheduler");
 
     info!("Starting server at {}:{}", host, port);
 
@@ -85,6 +93,7 @@ async fn main() -> std::io::Result<()> {
         config_path: config_path.clone(),
         auth_service,
         git_service: (*git_service_arc).clone(),
+        config_persistence,
     });
 
     HttpServer::new(move || {

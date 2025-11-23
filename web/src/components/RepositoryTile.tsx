@@ -125,12 +125,14 @@ export const RepositoryTile: React.FC<RepositoryTileProps> = ({
             <span className="meta-value">{repository.credential_id}</span>
           </div>
         )}
-        {repository.size !== null && repository.size !== undefined && (
-          <div className="repository-meta">
-            <span className="meta-label">Size:</span>
-            <span className="meta-value size-badge">{formatBytes(repository.size)}</span>
-          </div>
-        )}
+        <div className="repository-meta">
+          <span className="meta-label">Size:</span>
+          <span className="meta-value size-badge">
+            {repository.size !== null && repository.size !== undefined
+              ? formatBytes(repository.size)
+              : 'unknown'}
+          </span>
+        </div>
         <div className="repository-meta">
           <span className="meta-label">Last Sync:</span>
           <span className="meta-value">{formatRelativeTime(repository.last_sync)}</span>

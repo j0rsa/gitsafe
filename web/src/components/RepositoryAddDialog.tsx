@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import type { Credential } from '../types'
 import { Autocomplete } from './Autocomplete'
 import { repoNameFromUrl } from '../utils'
+import { useNotifications } from '../contexts/NotificationContext'
 import './RepositoryEditDialog.css'
 
 export interface RepositoryAddDialogProps {
@@ -27,6 +28,7 @@ export const RepositoryAddDialog: React.FC<RepositoryAddDialogProps> = ({
   const [error, setError] = useState<string | null>(null)
   const [credentialError, setCredentialError] = useState<string | null>(null)
   const [idError, setIdError] = useState<string | null>(null)
+  const { showError, showInfo } = useNotifications()
 
   useEffect(() => {
     if (isOpen) {
@@ -124,6 +126,7 @@ export const RepositoryAddDialog: React.FC<RepositoryAddDialogProps> = ({
         id: repositoryId.trim() || null,
       })
       // Only close on success
+      showInfo('Repository added successfully')
       onClose()
     } catch (err) {
       // Extract error message
@@ -134,6 +137,7 @@ export const RepositoryAddDialog: React.FC<RepositoryAddDialogProps> = ({
         errorMessage = err
       }
       setError(errorMessage)
+      showError(errorMessage)
       // Keep dialog open so user can fix the error
     } finally {
       setSaving(false)

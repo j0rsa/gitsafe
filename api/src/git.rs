@@ -4,7 +4,10 @@ use crate::error::AppError;
 use flate2::read::GzDecoder;
 use flate2::write::GzEncoder;
 use flate2::Compression;
-use git2::{build::RepoBuilder, Cred, FetchOptions, RemoteCallbacks, Repository as GitRepository};
+use git2::{
+    build::RepoBuilder, Cred, CredentialType, FetchOptions, RemoteCallbacks,
+    Repository as GitRepository,
+};
 use log::info;
 use std::fs::{self, File};
 use std::path::{Path, PathBuf};
@@ -508,17 +511,31 @@ impl GitService {
                 None
             };
 
-            callbacks.credentials(move |_url, username_from_url, _allowed_types| {
-                if let Some(ref key_data) = ssh_key_data {
-                    // Use SSH key from memory (always key content, never file path)
-                    Cred::ssh_key_from_memory(
-                        username_from_url.unwrap_or(&username),
-                        None,
-                        key_data,
-                        None,
-                    )
+            callbacks.credentials(move |_url, username_from_url, allowed_types| {
+                // Prefer SSH key if available and requested
+                if allowed_types.contains(CredentialType::SSH_KEY) {
+                    if let Some(ref key_data) = ssh_key_data {
+                        // Use SSH key from memory
+                        return Cred::ssh_key_from_memory(
+                            username_from_url.unwrap_or(&username),
+                            None,
+                            key_data,
+                            None,
+                        );
+                    } else {
+                        return Err(git2::Error::from_str("Authentication failed: no SSH key provided for git repository. Have you chosen the correct credential or passed the correct repository URL?"))
+                    }
+                }
+
+                // Fall back to username/password for HTTP/HTTPS if available
+                if allowed_types.contains(CredentialType::USER_PASS_PLAINTEXT) {
+                    if !password.is_empty() {
+                        Cred::userpass_plaintext(&username, &password)
+                    } else {
+                        Err(git2::Error::from_str("Authentication failed: no password provided for HTTP/HTTPS git repository. Have you chosen the correct credential or passed the correct repository URL?"))
+                    }
                 } else {
-                    Cred::userpass_plaintext(&username, &password)
+                    Err(git2::Error::from_str("Authentication failed: no matching credentials available. Have you chosen the correct credential or passed the correct repository URL?"))
                 }
             });
         }
@@ -610,17 +627,31 @@ impl GitService {
                 None
             };
 
-            callbacks.credentials(move |_url, username_from_url, _allowed_types| {
-                if let Some(ref key_data) = ssh_key_data {
-                    // Use SSH key from memory (always key content, never file path)
-                    Cred::ssh_key_from_memory(
-                        username_from_url.unwrap_or(&username),
-                        None,
-                        key_data,
-                        None,
-                    )
+            callbacks.credentials(move |_url, username_from_url, allowed_types| {
+                // Prefer SSH key if available and requested
+                if allowed_types.contains(CredentialType::SSH_KEY) {
+                    if let Some(ref key_data) = ssh_key_data {
+                        // Use SSH key from memory
+                        return Cred::ssh_key_from_memory(
+                            username_from_url.unwrap_or(&username),
+                            None,
+                            key_data,
+                            None,
+                        );
+                    } else {
+                        return Err(git2::Error::from_str("Authentication failed: no SSH key provided for git repository. Have you chosen the correct credential or passed the correct repository URL?"))
+                    }
+                }
+
+                // Fall back to username/password for HTTP/HTTPS if available
+                if allowed_types.contains(CredentialType::USER_PASS_PLAINTEXT) {
+                    if !password.is_empty() {
+                        Cred::userpass_plaintext(&username, &password)
+                    } else {
+                        Err(git2::Error::from_str("Authentication failed: no password provided for HTTP/HTTPS git repository. Have you chosen the correct credential or passed the correct repository URL?"))
+                    }
                 } else {
-                    Cred::userpass_plaintext(&username, &password)
+                    Err(git2::Error::from_str("Authentication failed: no matching credentials available. Have you chosen the correct credential or passed the correct repository URL?"))
                 }
             });
         }

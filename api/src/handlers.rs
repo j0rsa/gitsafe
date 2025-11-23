@@ -301,27 +301,48 @@ pub async fn sync_repository(
     data: web::Json<SyncRequest>,
     state: web::Data<AppState>,
 ) -> Result<HttpResponse, AppError> {
-    let config = state.config.read().await;
+    // Clone necessary data before spawning blocking task
+    let repository_id = data.repository_id.clone();
+    let git_service = state.git_service.clone();
+    let config_arc = Arc::clone(&state.config);
+    let config_path = state.config_path.clone();
 
-    let repository = config
-        .repositories
-        .iter()
-        .find(|r| r.id == data.repository_id)
-        .ok_or_else(|| AppError::NotFound("Repository not found".to_string()))?;
+    // Read config to get repository and credential info
+    let (repository, repository_for_sync, credential, encryption_key, webhooks) = {
+        let config = state.config.read().await;
+        let repository = config
+            .repositories
+            .iter()
+            .find(|r| r.id == repository_id)
+            .ok_or_else(|| AppError::NotFound("Repository not found".to_string()))?
+            .clone();
 
-    if !repository.enabled {
-        return Err(AppError::BadRequest("Repository is disabled".to_string()));
-    }
+        if !repository.enabled {
+            return Err(AppError::BadRequest("Repository is disabled".to_string()));
+        }
 
-    let credential = repository
-        .credential_id
-        .as_ref()
-        .and_then(|id| config.credentials.get(id));
+        let repository_for_sync = repository.clone(); // Clone for blocking task
+        let credential = repository
+            .credential_id
+            .as_ref()
+            .and_then(|id| config.credentials.get(id).cloned());
+        let encryption_key = config.server.encryption_key.clone();
+        let webhooks = config.server.error_webhooks.clone();
+        (
+            repository,
+            repository_for_sync,
+            credential,
+            encryption_key,
+            webhooks,
+        )
+    }; // Release lock before blocking operation
 
-    let sync_result =
-        state
-            .git_service
-            .sync_repository(repository, credential, &config.server.encryption_key);
+    // Run the blocking sync operation in a blocking thread pool
+    let sync_result = tokio::task::spawn_blocking(move || {
+        git_service.sync_repository(&repository_for_sync, credential.as_ref(), &encryption_key)
+    })
+    .await
+    .map_err(|e| AppError::InternalError(format!("Task join error: {}", e)))?;
 
     // Handle sync errors and notify webhooks
     let (archive_path, archive_size) = match sync_result {
@@ -329,8 +350,8 @@ pub async fn sync_repository(
         Err(e) => {
             // Notify webhooks about the error
             webhooks::notify_error_webhooks(
-                &config.server.error_webhooks,
-                repository,
+                &webhooks,
+                &repository,
                 "sync",
                 repository.credential_id.as_ref(),
                 &e.to_string(),
@@ -341,17 +362,17 @@ pub async fn sync_repository(
     };
 
     // Update repository size and last_sync
-    let mut config = state.config.write().await;
+    let mut config = config_arc.write().await;
     if let Some(repo) = config
         .repositories
         .iter_mut()
-        .find(|r| r.id == data.repository_id)
+        .find(|r| r.id == repository_id)
     {
         repo.size = Some(archive_size);
         repo.last_sync = Some(chrono::Utc::now());
         repo.error = None;
         config
-            .save(&state.config_path)
+            .save(&config_path)
             .map_err(|e| AppError::ConfigError(e.to_string()))?;
     }
 

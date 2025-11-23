@@ -31,12 +31,33 @@ pub async fn setup_scheduler(
             drop(cfg); // Release the lock
 
             for repo in repositories.iter().filter(|r| r.enabled) {
+                let repo_clone = repo.clone();
                 let credential = repo
                     .credential_id
                     .as_ref()
-                    .and_then(|id| credentials.get(id));
+                    .and_then(|id| credentials.get(id).cloned());
+                let encryption_key_clone = encryption_key.clone();
+                let git_service_clone = git_service.clone();
+                let config_clone = Arc::clone(&config);
 
-                match git_service.sync_repository(repo, credential, &encryption_key) {
+                // Run the blocking sync operation in a blocking thread pool
+                let sync_result = match tokio::task::spawn_blocking(move || {
+                    git_service_clone.sync_repository(
+                        &repo_clone,
+                        credential.as_ref(),
+                        &encryption_key_clone,
+                    )
+                })
+                .await
+                {
+                    Ok(result) => result,
+                    Err(e) => {
+                        error!("Task join error for repository {}: {}", repo.id, e);
+                        continue; // Skip this repository and continue with the next one
+                    }
+                };
+
+                match sync_result {
                     Ok((archive_path, archive_size)) => {
                         info!(
                             "Successfully synced repository {}: {:?} ({} bytes)",
@@ -44,7 +65,7 @@ pub async fn setup_scheduler(
                         );
 
                         // Update repository size and last_sync in config
-                        let mut cfg = config.write().await;
+                        let mut cfg = config_clone.write().await;
                         if let Some(repo_mut) =
                             cfg.repositories.iter_mut().find(|r| r.id == repo.id)
                         {
@@ -60,7 +81,7 @@ pub async fn setup_scheduler(
 
                         // Get webhook URLs before mutable borrow
                         let webhook_urls = {
-                            let cfg = config.read().await;
+                            let cfg = config_clone.read().await;
                             cfg.server.error_webhooks.clone()
                         };
 
@@ -75,7 +96,7 @@ pub async fn setup_scheduler(
                         .await;
 
                         // Update error in config
-                        let mut cfg = config.write().await;
+                        let mut cfg = config_clone.write().await;
                         if let Some(repo_mut) =
                             cfg.repositories.iter_mut().find(|r| r.id == repo.id)
                         {

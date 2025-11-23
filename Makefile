@@ -1,4 +1,4 @@
-.PHONY: build run build-api build-web test fix
+.PHONY: build run build-api build-web test fix hooks
 
 # Build both web and API
 build: build-web build-api
@@ -87,4 +87,16 @@ fix:
 	@echo "=========================================="
 	@echo "✅ All checks passed!"
 	@echo "=========================================="
+
+# Setup git hooks to use .githooks directory
+hooks:
+	@echo "Setting up git hooks for GitSafe..."
+	@echo "Repository root: $(shell pwd)"
+	@git config core.hooksPath .githooks
+	@echo "✅ Git hooks configured successfully!"
+	@echo ""
+	@echo "Git will now use hooks from: $(shell pwd)/.githooks"
+	@echo ""
+	@echo "To verify, run: git config core.hooksPath"
+	@echo "To uninstall, run: git config --unset core.hooksPath"
 

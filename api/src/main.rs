@@ -11,31 +11,52 @@ mod webhooks;
 use crate::config::Config;
 use crate::handlers::AppState;
 use crate::middleware::AuthMiddleware;
-use actix_web::{web, App, HttpServer};
+use actix_files as fs;
+use actix_web::{web, App, HttpServer, Result};
 use log::info;
-use std::fs;
+use std::fs as std_fs;
 use std::path::Path;
 use std::sync::Arc;
 use tokio::sync::RwLock;
+use std::env;
 
-const CONFIG_PATH: &str = "config.yaml";
+const DEFAULT_CONFIG_PATH: &str = "config.yaml";
+
+fn get_config_path() -> String {
+    env::var("CONFIG_PATH").unwrap_or_else(|_| DEFAULT_CONFIG_PATH.to_string())
+}
+
+const STATIC_DIR: &str = "static";
+
+/// SPA catch-all handler: serves index.html for any non-API route
+async fn spa_index() -> Result<fs::NamedFile> {
+    let index_path = Path::new(STATIC_DIR).join("index.html");
+    Ok(fs::NamedFile::open(index_path)?)
+}
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     env_logger::init();
-
+    let config_path = get_config_path();
     // Load or create config
-    let config = if Path::new(CONFIG_PATH).exists() {
-        Config::load(CONFIG_PATH).expect("Failed to load config")
+    let config = if Path::new(&config_path).exists() {
+        Config::load(config_path.clone()).expect("Failed to load config")
     } else {
         let config = Config::default();
-        config.save(CONFIG_PATH).expect("Failed to save config");
-        info!("Created default configuration file at {}", CONFIG_PATH);
+        config.save(config_path.clone()).expect("Failed to save config");
+        info!("Created default configuration file at {}", config_path);
         config
     };
 
     // Create archive directory
-    fs::create_dir_all(&config.storage.archive_dir).expect("Failed to create archive directory");
+    std_fs::create_dir_all(&config.storage.archive_dir).expect("Failed to create archive directory");
+    
+    // Create static directory if it doesn't exist (for web frontend)
+    let static_dir = Path::new(STATIC_DIR);
+    if !static_dir.exists() {
+        std_fs::create_dir_all(static_dir).expect("Failed to create static directory");
+        info!("Created static directory at {}", static_dir.display());
+    }
 
     let host = config.server.host.clone();
     let port = config.server.port;
@@ -57,8 +78,8 @@ async fn main() -> std::io::Result<()> {
 
     let app_state = web::Data::new(AppState {
         config: Arc::clone(&config),
-        config_path: CONFIG_PATH.to_string(),
-        auth_service,
+        config_path: config_path.clone(),
+        auth_service: auth_service,
         git_service: (*git_service_arc).clone(),
     });
 
@@ -81,6 +102,12 @@ async fn main() -> std::io::Result<()> {
                     .route("/credentials", web::post().to(handlers::add_credential))
                     .route("/credentials/{id}", web::patch().to(handlers::update_credential))
                     .route("/credentials/{id}", web::delete().to(handlers::delete_credential))
+            )
+            // Serve static files (JS, CSS, images, etc.) from static directory
+            .service(
+                fs::Files::new("/", STATIC_DIR)
+                    .index_file("index.html")
+                    .default_handler(web::route().to(spa_index))
             )
     })
     .bind((host, port))?

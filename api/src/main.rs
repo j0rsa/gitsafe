@@ -83,7 +83,7 @@ async fn main() -> std::io::Result<()> {
     let app_state = web::Data::new(AppState {
         config: Arc::clone(&config),
         config_path: config_path.clone(),
-        auth_service: auth_service,
+        auth_service,
         git_service: (*git_service_arc).clone(),
     });
 

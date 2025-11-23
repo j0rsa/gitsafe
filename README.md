@@ -42,25 +42,23 @@ The binary will be available at `target/release/gitsafe`.
 
 ### Setting up pre-commit hooks (optional)
 
-To ensure code quality, you can set up pre-commit hooks that automatically run formatting, checks, and linting before each commit:
+This project includes pre-commit hooks that automatically run formatting, checks, and linting before each commit. To install them:
 
 ```bash
-# Install pre-commit (if not already installed)
-pip install pre-commit
-# or on macOS:
-# brew install pre-commit
-
-# Install the git hooks
-pre-commit install
-
-# (Optional) Run against all files
-pre-commit run --all-files
+./scripts/setup-hooks.sh
 ```
 
 The pre-commit hooks will automatically run:
-- `cargo fmt` - Format code
-- `cargo check` - Check compilation
-- `cargo clippy` - Lint code
+- `cargo test --all` - Run all tests
+- `cargo check --all` - Check compilation
+- `cargo clippy --all -- -D warnings` - Lint code with clippy
+- `cargo fmt --all -- --check` - Check code formatting
+
+The hooks are stored in `.githooks/` and configured via git's `core.hooksPath` setting. To uninstall, run:
+
+```bash
+git config --unset core.hooksPath
+```
 
 ## Configuration
 

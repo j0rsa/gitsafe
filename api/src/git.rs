@@ -33,7 +33,7 @@ impl GitService {
     ///
     /// * `archive_dir` - Directory path where repositories will be stored
     /// * `compact` - If `true`, repositories are stored as compressed tarballs.
-    ///               If `false`, repositories are stored as folders.
+    ///   If `false`, repositories are stored as folders.
     ///
     /// # Returns
     ///
@@ -367,7 +367,7 @@ impl GitService {
                 .password
                 .as_ref()
                 .map(|p| encryption::decrypt_password(p, encryption_key))
-                .unwrap_or_else(|| String::new());
+                .unwrap_or_default();
 
             // Decrypt SSH key if encrypted
             let ssh_key_data: Option<String> = if let Some(ref key_data) = cred.ssh_key {
@@ -469,7 +469,7 @@ impl GitService {
                 .password
                 .as_ref()
                 .map(|p| encryption::decrypt_password(p, encryption_key))
-                .unwrap_or_else(|| String::new());
+                .unwrap_or_default();
 
             // Decrypt SSH key if encrypted
             let ssh_key_data: Option<String> = if let Some(ref key_data) = cred.ssh_key {
@@ -646,6 +646,7 @@ impl GitService {
     /// - The path doesn't exist or is not a directory
     /// - Directory reading fails
     /// - File metadata cannot be accessed
+    #[allow(clippy::only_used_in_recursion)]
     fn calculate_folder_size(&self, folder_path: &Path) -> Result<u64, AppError> {
         let mut total_size = 0u64;
 

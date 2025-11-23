@@ -1,0 +1,20 @@
+#!/bin/sh
+#
+# Pre-commit hook for GitSafe
+# Runs cargo checks before allowing commits
+#
+
+set -e
+
+# Change to api directory where Cargo.toml is located
+cd api
+
+echo '+cargo test --all'
+cargo test --all
+echo '+cargo check --all'
+cargo check --all
+echo '+cargo clippy --all -- -D warnings'
+cargo clippy --all -- -D warnings
+echo '+cargo fmt --all -- --check'
+cargo fmt --all -- --check
+

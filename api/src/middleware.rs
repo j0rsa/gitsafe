@@ -85,7 +85,7 @@ where
             let claims = app_state
                 .auth_service
                 .verify_token(token)
-                .map_err(|e| actix_web::error::ErrorUnauthorized(e))?;
+                .map_err(actix_web::error::ErrorUnauthorized)?;
 
             // Store authenticated username in request extensions
             req.extensions_mut().insert(AuthenticatedUser(claims.sub));

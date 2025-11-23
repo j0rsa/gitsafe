@@ -42,10 +42,12 @@ pub async fn setup_scheduler(
                             "Successfully synced repository {}: {:?} ({} bytes)",
                             repo.id, archive_path, archive_size
                         );
-                        
+
                         // Update repository size and last_sync in config
                         let mut cfg = config.write().await;
-                        if let Some(repo_mut) = cfg.repositories.iter_mut().find(|r| r.id == repo.id) {
+                        if let Some(repo_mut) =
+                            cfg.repositories.iter_mut().find(|r| r.id == repo.id)
+                        {
                             repo_mut.size = Some(archive_size);
                             repo_mut.last_sync = Some(chrono::Utc::now());
                             repo_mut.error = None;
@@ -55,13 +57,13 @@ pub async fn setup_scheduler(
                     }
                     Err(e) => {
                         error!("Failed to sync repository {}: {}", repo.id, e);
-                        
+
                         // Get webhook URLs before mutable borrow
                         let webhook_urls = {
                             let cfg = config.read().await;
                             cfg.server.error_webhooks.clone()
                         };
-                        
+
                         // Notify webhooks about the error
                         webhooks::notify_error_webhooks(
                             &webhook_urls,
@@ -71,10 +73,12 @@ pub async fn setup_scheduler(
                             &e.to_string(),
                         )
                         .await;
-                        
+
                         // Update error in config
                         let mut cfg = config.write().await;
-                        if let Some(repo_mut) = cfg.repositories.iter_mut().find(|r| r.id == repo.id) {
+                        if let Some(repo_mut) =
+                            cfg.repositories.iter_mut().find(|r| r.id == repo.id)
+                        {
                             repo_mut.error = Some(e.to_string());
                         }
                     }

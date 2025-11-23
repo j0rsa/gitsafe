@@ -1,6 +1,6 @@
+use chrono::Utc;
 use gitsafe::config::Repository;
 use gitsafe::webhooks::{ErrorWebhookPayload, RepoInfo};
-use chrono::Utc;
 
 #[test]
 fn test_error_webhook_payload_serialization() {
@@ -64,7 +64,7 @@ fn test_error_webhook_payload_without_credential() {
 
     let json = serde_json::to_string(&payload).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
-    
+
     assert_eq!(parsed["repo"]["id"], "test-repo-2");
     assert_eq!(parsed["operation"], "pull");
     assert_eq!(parsed["error_message"], "Merge conflicts detected");
@@ -83,7 +83,7 @@ fn test_repo_info_serialization() {
 
     let json = serde_json::to_string(&repo_info).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
-    
+
     assert_eq!(parsed["id"], "repo-123");
     assert_eq!(parsed["url"], "https://github.com/example/repo");
     assert_eq!(parsed["enabled"], true);
@@ -104,4 +104,3 @@ async fn test_notify_error_webhooks_empty_list() {
     // Should not panic or error with empty webhook list
     gitsafe::webhooks::notify_error_webhooks(&[], &repo, "sync", None, "test error").await;
 }
-

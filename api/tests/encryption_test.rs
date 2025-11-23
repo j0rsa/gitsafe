@@ -3,7 +3,8 @@ use gitsafe::encryption::*;
 #[test]
 fn test_encrypt_decrypt_ssh_key() {
     let encryption_key = "test-encryption-key-12345";
-    let ssh_key = "-----BEGIN OPENSSH PRIVATE KEY-----\nkey content here\n-----END OPENSSH PRIVATE KEY-----";
+    let ssh_key =
+        "-----BEGIN OPENSSH PRIVATE KEY-----\nkey content here\n-----END OPENSSH PRIVATE KEY-----";
 
     let encrypted = encrypt_ssh_key(ssh_key, encryption_key).unwrap();
     assert_ne!(encrypted, ssh_key);
@@ -17,7 +18,8 @@ fn test_encrypt_decrypt_ssh_key() {
 fn test_wrong_key_fails() {
     let encryption_key = "test-encryption-key-12345";
     let wrong_key = "wrong-key";
-    let ssh_key = "-----BEGIN OPENSSH PRIVATE KEY-----\nkey content\n-----END OPENSSH PRIVATE KEY-----";
+    let ssh_key =
+        "-----BEGIN OPENSSH PRIVATE KEY-----\nkey content\n-----END OPENSSH PRIVATE KEY-----";
 
     let encrypted = encrypt_ssh_key(ssh_key, encryption_key).unwrap();
     let result = decrypt_ssh_key(&encrypted, wrong_key);
@@ -57,4 +59,3 @@ fn test_encrypt_data_generic() {
     let decrypted = decrypt_data(&encrypted, encryption_key).unwrap();
     assert_eq!(decrypted, data);
 }
-

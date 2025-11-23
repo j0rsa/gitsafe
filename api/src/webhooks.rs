@@ -96,5 +96,3 @@ pub async fn notify_error_webhooks(
         });
     }
 }
-
-

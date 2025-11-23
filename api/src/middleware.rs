@@ -65,26 +65,20 @@ where
             // Extract AppState
             let app_state = req
                 .app_data::<actix_web::web::Data<AppState>>()
-                .ok_or_else(|| {
-                    AppError::InternalError("AppState not found".to_string())
-                })?;
+                .ok_or_else(|| AppError::InternalError("AppState not found".to_string()))?;
 
             // Extract Authorization header
             let auth_header = req
                 .headers()
                 .get("Authorization")
-                .ok_or_else(|| {
-                    AppError::AuthError("Missing Authorization header".to_string())
-                })?
+                .ok_or_else(|| AppError::AuthError("Missing Authorization header".to_string()))?
                 .to_str()
-                .map_err(|_| {
-                    AppError::AuthError("Invalid Authorization header".to_string())
-                })?;
+                .map_err(|_| AppError::AuthError("Invalid Authorization header".to_string()))?;
 
             if !auth_header.starts_with("Bearer ") {
-                return Err(actix_web::error::ErrorUnauthorized(
-                    AppError::AuthError("Invalid Authorization format".to_string()),
-                ));
+                return Err(actix_web::error::ErrorUnauthorized(AppError::AuthError(
+                    "Invalid Authorization format".to_string(),
+                )));
             }
 
             let token = &auth_header[7..];
@@ -102,4 +96,3 @@ where
         })
     }
 }
-

@@ -51,7 +51,10 @@ impl GitService {
     pub fn new<P: AsRef<Path>>(archive_dir: P, compact: bool) -> Result<Self, AppError> {
         let archive_dir = archive_dir.as_ref().to_path_buf();
         fs::create_dir_all(&archive_dir)?;
-        Ok(GitService { archive_dir, compact })
+        Ok(GitService {
+            archive_dir,
+            compact,
+        })
     }
 
     /// Generates a repository name from a Git URL.
@@ -84,7 +87,7 @@ impl GitService {
     /// ```
     pub fn repo_name_from_url(url: &str) -> String {
         let mut parts = Vec::new();
-        
+
         // Parse URL
         if let Ok(parsed) = url::Url::parse(url) {
             // Extract domain (replace dots with underscores)
@@ -92,12 +95,13 @@ impl GitService {
                 let domain = host.replace('.', "_");
                 parts.push(domain);
             }
-            
+
             // Extract path segments (user/org and repo name)
-            let path_segments: Vec<&str> = parsed.path_segments()
+            let path_segments: Vec<&str> = parsed
+                .path_segments()
                 .map(|s| s.collect())
                 .unwrap_or_default();
-            
+
             for segment in path_segments {
                 if !segment.is_empty() {
                     // Remove .git suffix if present
@@ -112,7 +116,7 @@ impl GitService {
                 if let Some(path_start) = after_protocol.find('/') {
                     let domain = after_protocol[..path_start].replace('.', "_");
                     parts.push(domain);
-                    
+
                     let path = &after_protocol[path_start + 1..];
                     let path_segments: Vec<&str> = path.split('/').collect();
                     for segment in path_segments {
@@ -124,7 +128,7 @@ impl GitService {
                 }
             }
         }
-        
+
         parts.join("-")
     }
 
@@ -184,7 +188,7 @@ impl GitService {
         info!("Syncing repository: {} ({})", repo.id, repo.url);
 
         let repo_name = Self::repo_name_from_url(&repo.url);
-        
+
         if self.compact {
             self.sync_repository_compact(repo, &repo_name, credential, encryption_key)
         } else {
@@ -221,7 +225,7 @@ impl GitService {
     ) -> Result<(PathBuf, u64), AppError> {
         let archive_name = format!("{}.tar.gz", repo_name);
         let archive_path = self.archive_dir.join(&archive_name);
-        
+
         let temp_dir = tempfile::tempdir().map_err(AppError::IoError)?;
         let work_dir = temp_dir.path();
         let repo_path = work_dir.join(repo_name);
@@ -264,7 +268,10 @@ impl GitService {
             fs::remove_dir_all(&repo_path)?;
         }
 
-        info!("Created archive: {:?} ({} bytes)", archive_path, archive_size);
+        info!(
+            "Created archive: {:?} ({} bytes)",
+            archive_path, archive_size
+        );
         Ok((archive_path, archive_size))
     }
 
@@ -311,7 +318,10 @@ impl GitService {
         // Calculate cumulative folder size
         let folder_size = self.calculate_folder_size(&repo_path)?;
 
-        info!("Synced repository to folder: {:?} ({} bytes)", repo_path, folder_size);
+        info!(
+            "Synced repository to folder: {:?} ({} bytes)",
+            repo_path, folder_size
+        );
         Ok((repo_path, folder_size))
     }
 
@@ -353,10 +363,12 @@ impl GitService {
         if let Some(cred) = credential {
             let username = cred.username.clone();
             // Decrypt password if present and encrypted, or use as-is for backward compatibility
-            let password = cred.password.as_ref()
+            let password = cred
+                .password
+                .as_ref()
                 .map(|p| encryption::decrypt_password(p, encryption_key))
                 .unwrap_or_else(|| String::new());
-            
+
             // Decrypt SSH key if encrypted
             let ssh_key_data: Option<String> = if let Some(ref key_data) = cred.ssh_key {
                 // Check if it's plaintext SSH key content
@@ -400,7 +412,8 @@ impl GitService {
         builder.fetch_options(fetch_options);
 
         // Clone the repository
-        builder.clone(url, repo_path)
+        builder
+            .clone(url, repo_path)
             .map_err(|e| AppError::GitError(format!("Failed to clone repository: {}", e)))?;
 
         Ok(())
@@ -442,7 +455,8 @@ impl GitService {
         encryption_key: &str,
     ) -> Result<(), AppError> {
         // Find the remote
-        let mut remote = git_repo.find_remote("origin")
+        let mut remote = git_repo
+            .find_remote("origin")
             .map_err(|e| AppError::GitError(format!("Failed to find remote: {}", e)))?;
 
         // Set up callbacks for authentication
@@ -451,10 +465,12 @@ impl GitService {
         if let Some(cred) = credential {
             let username = cred.username.clone();
             // Decrypt password if present and encrypted, or use as-is for backward compatibility
-            let password = cred.password.as_ref()
+            let password = cred
+                .password
+                .as_ref()
                 .map(|p| encryption::decrypt_password(p, encryption_key))
                 .unwrap_or_else(|| String::new());
-            
+
             // Decrypt SSH key if encrypted
             let ssh_key_data: Option<String> = if let Some(ref key_data) = cred.ssh_key {
                 // Check if it's plaintext SSH key content
@@ -495,72 +511,92 @@ impl GitService {
         fetch_options.remote_callbacks(callbacks);
 
         // Fetch updates
-        remote.fetch(&["refs/heads/*:refs/heads/*"], Some(&mut fetch_options), None)
+        remote
+            .fetch(
+                &["refs/heads/*:refs/heads/*"],
+                Some(&mut fetch_options),
+                None,
+            )
             .map_err(|e| AppError::GitError(format!("Failed to fetch updates: {}", e)))?;
 
         // Merge fetched changes
-        let fetch_head = git_repo.find_reference("FETCH_HEAD")
+        let fetch_head = git_repo
+            .find_reference("FETCH_HEAD")
             .map_err(|e| AppError::GitError(format!("Failed to find FETCH_HEAD: {}", e)))?;
-        let fetch_commit = git_repo.reference_to_annotated_commit(&fetch_head)
+        let fetch_commit = git_repo
+            .reference_to_annotated_commit(&fetch_head)
             .map_err(|e| AppError::GitError(format!("Failed to get commit: {}", e)))?;
 
-        let analysis = git_repo.merge_analysis(&[&fetch_commit])
+        let analysis = git_repo
+            .merge_analysis(&[&fetch_commit])
             .map_err(|e| AppError::GitError(format!("Failed to analyze merge: {}", e)))?;
 
         if analysis.0.is_up_to_date() {
             info!("Repository is already up to date");
         } else if analysis.0.is_fast_forward() {
             // Fast-forward merge
-            let head = git_repo.head()
+            let head = git_repo
+                .head()
                 .map_err(|e| AppError::GitError(format!("Failed to get HEAD: {}", e)))?;
-            let branch_name = head.name()
+            let branch_name = head
+                .name()
                 .ok_or_else(|| AppError::GitError("Failed to get branch name".to_string()))?;
-            
-            let mut reference = git_repo.find_reference(branch_name)
-                .map_err(|e| AppError::GitError(format!("Failed to find branch {}: {}", branch_name, e)))?;
-            reference.set_target(fetch_commit.id(), "Fast-forward merge")
+
+            let mut reference = git_repo.find_reference(branch_name).map_err(|e| {
+                AppError::GitError(format!("Failed to find branch {}: {}", branch_name, e))
+            })?;
+            reference
+                .set_target(fetch_commit.id(), "Fast-forward merge")
                 .map_err(|e| AppError::GitError(format!("Failed to update reference: {}", e)))?;
-            git_repo.set_head(branch_name)
+            git_repo
+                .set_head(branch_name)
                 .map_err(|e| AppError::GitError(format!("Failed to set HEAD: {}", e)))?;
-            git_repo.checkout_head(Some(git2::build::CheckoutBuilder::default().force()))
+            git_repo
+                .checkout_head(Some(git2::build::CheckoutBuilder::default().force()))
                 .map_err(|e| AppError::GitError(format!("Failed to checkout: {}", e)))?;
         } else {
             // Need merge commit
-            let head_commit = git_repo.head()
+            let head_commit = git_repo
+                .head()
                 .and_then(|h| h.peel_to_commit())
                 .map_err(|e| AppError::GitError(format!("Failed to get HEAD commit: {}", e)))?;
-            
-            let fetch_commit_obj = git_repo.find_object(fetch_commit.id(), None)
-                .map_err(|e| AppError::GitError(format!("Failed to find fetch commit object: {}", e)))?;
-            let fetch_commit_commit = fetch_commit_obj.peel_to_commit()
+
+            let fetch_commit_obj = git_repo.find_object(fetch_commit.id(), None).map_err(|e| {
+                AppError::GitError(format!("Failed to find fetch commit object: {}", e))
+            })?;
+            let fetch_commit_commit = fetch_commit_obj
+                .peel_to_commit()
                 .map_err(|e| AppError::GitError(format!("Failed to get fetch commit: {}", e)))?;
 
-            let mut index = git_repo.merge_commits(
-                &head_commit,
-                &fetch_commit_commit,
-                None
-            ).map_err(|e| AppError::GitError(format!("Failed to merge: {}", e)))?;
+            let mut index = git_repo
+                .merge_commits(&head_commit, &fetch_commit_commit, None)
+                .map_err(|e| AppError::GitError(format!("Failed to merge: {}", e)))?;
 
             if index.has_conflicts() {
                 return Err(AppError::GitError("Merge conflicts detected".to_string()));
             }
 
-            let tree_id = index.write_tree_to(git_repo)
+            let tree_id = index
+                .write_tree_to(git_repo)
                 .map_err(|e| AppError::GitError(format!("Failed to write tree: {}", e)))?;
-            let tree = git_repo.find_tree(tree_id)
+            let tree = git_repo
+                .find_tree(tree_id)
                 .map_err(|e| AppError::GitError(format!("Failed to find tree: {}", e)))?;
 
-            let signature = git_repo.signature()
+            let signature = git_repo
+                .signature()
                 .map_err(|e| AppError::GitError(format!("Failed to get signature: {}", e)))?;
 
-            git_repo.commit(
-                Some("HEAD"),
-                &signature,
-                &signature,
-                "Merge updates",
-                &tree,
-                &[&head_commit, &fetch_commit_commit],
-            ).map_err(|e| AppError::GitError(format!("Failed to create merge commit: {}", e)))?;
+            git_repo
+                .commit(
+                    Some("HEAD"),
+                    &signature,
+                    &signature,
+                    "Merge updates",
+                    &tree,
+                    &[&head_commit, &fetch_commit_commit],
+                )
+                .map_err(|e| AppError::GitError(format!("Failed to create merge commit: {}", e)))?;
         }
 
         Ok(())
@@ -612,22 +648,20 @@ impl GitService {
     /// - File metadata cannot be accessed
     fn calculate_folder_size(&self, folder_path: &Path) -> Result<u64, AppError> {
         let mut total_size = 0u64;
-        
+
         if folder_path.is_dir() {
             for entry in fs::read_dir(folder_path)? {
                 let entry = entry?;
                 let path = entry.path();
-                
+
                 if path.is_dir() {
                     total_size += self.calculate_folder_size(&path)?;
                 } else {
-                    total_size += fs::metadata(&path)
-                        .map(|m| m.len())
-                        .unwrap_or(0);
+                    total_size += fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
                 }
             }
         }
-        
+
         Ok(total_size)
     }
 

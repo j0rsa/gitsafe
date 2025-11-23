@@ -66,7 +66,9 @@ pub fn decrypt_data(encrypted_data: &str, encryption_key: &str) -> Result<String
 
     // Extract nonce (first 12 bytes for AES-GCM)
     if combined.len() < 12 {
-        return Err(AppError::InternalError("Invalid encrypted data format".to_string()));
+        return Err(AppError::InternalError(
+            "Invalid encrypted data format".to_string(),
+        ));
     }
 
     let nonce = Nonce::from_slice(&combined[..12]);
@@ -166,5 +168,3 @@ fn derive_key(key: &str) -> [u8; 32] {
     key_bytes.copy_from_slice(&hash);
     key_bytes
 }
-
-

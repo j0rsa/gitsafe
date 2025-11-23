@@ -59,4 +59,3 @@ fn test_repo_name_edge_cases() {
     let name = GitService::repo_name_from_url("https://github.com/user/repo/");
     assert_eq!(name, "github_com-user-repo");
 }
-

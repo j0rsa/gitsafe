@@ -318,11 +318,10 @@ pub async fn sync_repository(
         .as_ref()
         .and_then(|id| config.credentials.get(id));
 
-    let sync_result = state.git_service.sync_repository(
-        repository,
-        credential,
-        &config.server.encryption_key,
-    );
+    let sync_result =
+        state
+            .git_service
+            .sync_repository(repository, credential, &config.server.encryption_key);
 
     // Handle sync errors and notify webhooks
     let (archive_path, archive_size) = match sync_result {
@@ -343,7 +342,11 @@ pub async fn sync_repository(
 
     // Update repository size and last_sync
     let mut config = state.config.write().await;
-    if let Some(repo) = config.repositories.iter_mut().find(|r| r.id == data.repository_id) {
+    if let Some(repo) = config
+        .repositories
+        .iter_mut()
+        .find(|r| r.id == data.repository_id)
+    {
         repo.size = Some(archive_size);
         repo.last_sync = Some(chrono::Utc::now());
         repo.error = None;
@@ -359,9 +362,7 @@ pub async fn sync_repository(
     })))
 }
 
-pub async fn list_credentials(
-    state: web::Data<AppState>,
-) -> Result<HttpResponse, AppError> {
+pub async fn list_credentials(state: web::Data<AppState>) -> Result<HttpResponse, AppError> {
     let config = state.config.read().await;
     let credentials: Vec<CredentialResponse> = config
         .credentials
@@ -382,10 +383,10 @@ pub async fn add_credential(
     // Validate that at least one authentication method is provided
     let has_password = !data.password.is_empty();
     let has_ssh_key = data.ssh_key.is_some() && !data.ssh_key.as_ref().unwrap().is_empty();
-    
+
     if !has_password && !has_ssh_key {
         return Err(AppError::BadRequest(
-            "At least one of password or SSH key is required".to_string()
+            "At least one of password or SSH key is required".to_string(),
         ));
     }
 
@@ -397,7 +398,10 @@ pub async fn add_credential(
             None
         } else if key.starts_with("-----BEGIN") || key.contains('\n') {
             // It's plaintext SSH key content - encrypt it
-            Some(encryption::encrypt_ssh_key(key, &config.server.encryption_key)?)
+            Some(encryption::encrypt_ssh_key(
+                key,
+                &config.server.encryption_key,
+            )?)
         } else {
             // Reject keys that don't look like SSH key content (could be file paths)
             return Err(AppError::BadRequest(
@@ -410,7 +414,10 @@ pub async fn add_credential(
 
     // Encrypt password if provided
     let password = if !data.password.is_empty() {
-        Some(encryption::encrypt_password(&data.password, &config.server.encryption_key)?)
+        Some(encryption::encrypt_password(
+            &data.password,
+            &config.server.encryption_key,
+        )?)
     } else {
         None
     };
@@ -445,7 +452,7 @@ pub async fn update_credential(
 
     // Get encryption key before mutable borrow
     let encryption_key = config.server.encryption_key.clone();
-    
+
     // Get existing credential data before mutable borrow
     let existing_credential = config
         .credentials
@@ -461,16 +468,19 @@ pub async fn update_credential(
     // Determine what's being updated
     let has_password = !data.password.is_empty();
     let has_ssh_key = data.ssh_key.is_some() && !data.ssh_key.as_ref().unwrap().is_empty();
-    
+
     // Determine what will exist after update
     let final_password = if has_password {
         // Encrypt the new password
-        Some(encryption::encrypt_password(&data.password, &encryption_key)?)
+        Some(encryption::encrypt_password(
+            &data.password,
+            &encryption_key,
+        )?)
     } else {
         // Keep existing password (already encrypted or plaintext for backward compatibility)
         existing_credential.password.clone()
     };
-    
+
     let final_ssh_key = if has_ssh_key {
         // SSH key is provided - encrypt and use it
         let key = data.ssh_key.as_ref().unwrap();
@@ -490,7 +500,7 @@ pub async fn update_credential(
         // Neither provided - keep existing SSH key
         existing_credential.ssh_key.clone()
     };
-    
+
     // Validate and update the credential using the constructor
     // We need to create a new credential to validate, then update the existing one
     let _validated = Credential::try_new(
@@ -525,7 +535,11 @@ pub async fn delete_credential(
     let mut config = state.config.write().await;
 
     // if the credential is in use, return an error
-    if config.repositories.iter().any(|r| r.credential_id == Some(cred_id.clone())) {
+    if config
+        .repositories
+        .iter()
+        .any(|r| r.credential_id == Some(cred_id.clone()))
+    {
         return Err(AppError::BadRequest(format!(
             "Credential {} is in use",
             cred_id

@@ -1,9 +1,9 @@
+use chrono::{DateTime, Utc};
+use config::{Config as ConfigBuilder, ConfigError, Environment, File, FileFormat};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
-use chrono::{DateTime, Utc};
-use config::{Config as ConfigBuilder, ConfigError, Environment, File, FileFormat};
 
 /// Main application configuration structure.
 ///
@@ -172,28 +172,28 @@ pub struct User {
 
 impl Config {
     /// Load configuration from a YAML file with environment variable overrides.
-    /// 
+    ///
     /// Environment variables can override any config value using the format:
     /// `GITSAFE__<SECTION>__<FIELD>` (double underscore for nesting)
-    /// 
+    ///
     /// Examples:
     /// - `GITSAFE__SERVER__HOST=0.0.0.0` overrides `server.host`
     /// - `GITSAFE__SERVER__PORT=9090` overrides `server.port`
     /// - `GITSAFE__STORAGE__ARCHIVE_DIR=/tmp/archives` overrides `storage.archive_dir`
     pub fn load<P: AsRef<Path>>(path: P) -> Result<Self, ConfigError> {
         let path_ref = path.as_ref();
-        
+
         let mut builder = ConfigBuilder::builder();
-        
+
         // Load from YAML file first (base configuration)
         if path_ref.exists() {
             builder = builder.add_source(File::from(path_ref).format(FileFormat::Yaml));
         }
-        
+
         // Override with environment variables (higher priority, overrides file values)
         // Use GITSAFE__ prefix and double underscore (__) for nested fields
         builder = builder.add_source(Environment::with_prefix("GITSAFE").separator("__"));
-        
+
         let config = builder.build()?;
         config.try_deserialize()
     }

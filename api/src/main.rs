@@ -14,11 +14,11 @@ use crate::middleware::AuthMiddleware;
 use actix_files as fs;
 use actix_web::{web, App, HttpServer, Result};
 use log::info;
+use std::env;
 use std::fs as std_fs;
 use std::path::Path;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use std::env;
 
 const DEFAULT_CONFIG_PATH: &str = "config.yaml";
 
@@ -43,14 +43,17 @@ async fn main() -> std::io::Result<()> {
         Config::load(config_path.clone()).expect("Failed to load config")
     } else {
         let config = Config::default();
-        config.save(config_path.clone()).expect("Failed to save config");
+        config
+            .save(config_path.clone())
+            .expect("Failed to save config");
         info!("Created default configuration file at {}", config_path);
         config
     };
 
     // Create archive directory
-    std_fs::create_dir_all(&config.storage.archive_dir).expect("Failed to create archive directory");
-    
+    std_fs::create_dir_all(&config.storage.archive_dir)
+        .expect("Failed to create archive directory");
+
     // Create static directory if it doesn't exist (for web frontend)
     let static_dir = Path::new(STATIC_DIR);
     if !static_dir.exists() {
@@ -66,7 +69,8 @@ async fn main() -> std::io::Result<()> {
 
     let config = Arc::new(RwLock::new(config));
     let auth_service = auth::AuthService::new(jwt_secret);
-    let git_service = git::GitService::new(&archive_dir, compact).expect("Failed to create git service");
+    let git_service =
+        git::GitService::new(&archive_dir, compact).expect("Failed to create git service");
     let git_service_arc = Arc::new(git_service);
 
     // Setup scheduler
@@ -95,19 +99,31 @@ async fn main() -> std::io::Result<()> {
                     .wrap(AuthMiddleware)
                     .route("/repositories", web::get().to(handlers::list_repositories))
                     .route("/repositories", web::post().to(handlers::add_repository))
-                    .route("/repositories/{id}", web::patch().to(handlers::update_repository))
-                    .route("/repositories/{id}", web::delete().to(handlers::delete_repository))
+                    .route(
+                        "/repositories/{id}",
+                        web::patch().to(handlers::update_repository),
+                    )
+                    .route(
+                        "/repositories/{id}",
+                        web::delete().to(handlers::delete_repository),
+                    )
                     .route("/sync", web::post().to(handlers::sync_repository))
                     .route("/credentials", web::get().to(handlers::list_credentials))
                     .route("/credentials", web::post().to(handlers::add_credential))
-                    .route("/credentials/{id}", web::patch().to(handlers::update_credential))
-                    .route("/credentials/{id}", web::delete().to(handlers::delete_credential))
+                    .route(
+                        "/credentials/{id}",
+                        web::patch().to(handlers::update_credential),
+                    )
+                    .route(
+                        "/credentials/{id}",
+                        web::delete().to(handlers::delete_credential),
+                    ),
             )
             // Serve static files (JS, CSS, images, etc.) from static directory
             .service(
                 fs::Files::new("/", STATIC_DIR)
                     .index_file("index.html")
-                    .default_handler(web::route().to(spa_index))
+                    .default_handler(web::route().to(spa_index)),
             )
     })
     .bind((host, port))?

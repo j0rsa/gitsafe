@@ -147,6 +147,41 @@ jobs:
         working-directory: api
         run: cargo audit
 
+  build-web:
+    name: Build Web Frontend
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      
+      - name: Cache node modules
+        uses: actions/cache@v4
+        with:
+          path: web/node_modules
+          key: ${{ runner.os }}-web-node-modules-${{ hashFiles('web/bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-web-node-modules-
+      
+      - name: Install dependencies
+        working-directory: web
+        run: bun install --frozen-lockfile
+      
+      - name: Build web frontend
+        working-directory: web
+        run: bun run build
+      
+      - name: Upload web build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-static
+          path: api/static
+          retention-days: 1
+
   build-binary:
     name: Build Binary
     runs-on: ubuntu-latest
@@ -216,25 +251,32 @@ jobs:
   docker-build:
     name: Build Docker Image
     runs-on: ubuntu-latest
-    needs: build-binary
-    strategy:
-      matrix:
-        include:
-          - arch: amd64
-            platform: linux/amd64
-          - arch: arm64
-            platform: linux/arm64
+    needs: [build-binary, build-web]
     steps:
       - uses: actions/checkout@v4
       
-      - name: Download binary artifact
+      - name: Download amd64 binary artifact
         uses: actions/download-artifact@v4
         with:
-          name: gitsafe-${{ matrix.arch }}
-          path: ./binary
+          name: gitsafe-amd64
+          path: ./binary-amd64
       
-      - name: Make binary executable
-        run: chmod +x ./binary/gitsafe
+      - name: Download arm64 binary artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: gitsafe-arm64
+          path: ./binary-arm64
+      
+      - name: Download web build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: web-static
+          path: ./api/static
+      
+      - name: Make binaries executable
+        run: |
+          chmod +x ./binary-amd64/gitsafe
+          chmod +x ./binary-arm64/gitsafe
       
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -255,48 +297,15 @@ jobs:
           tags: |
             type=ref,event=branch
             type=sha
-          flavor: |
-            suffix=-${{ matrix.arch }}
       
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
           context: .
           file: api/Dockerfile.prebuilt
-          platforms: ${{ matrix.platform }}
+          platforms: linux/amd64,linux/arm64
           push: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,scope=${{ matrix.arch }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.arch }}
-
-  docker-manifest:
-    name: Create Multi-Arch Manifest
-    runs-on: ubuntu-latest
-    needs: docker-build
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
-    steps:
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      
-      - name: Extract metadata for Docker
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=ref,event=branch
-            type=sha
-      
-      - name: Create and push manifest
-        run: |
-          TAGS="${{ steps.meta.outputs.tags }}"
-          for tag in $TAGS; do
-            docker buildx imagetools create -t ${tag} \
-              ${tag}-amd64 \
-              ${tag}-arm64
-          done
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

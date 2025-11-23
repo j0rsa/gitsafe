@@ -1,6 +1,9 @@
 # Runtime stage only - uses pre-built binary
 FROM debian:bookworm-slim
 
+# TARGETARCH is automatically provided by buildx for multi-platform builds
+ARG TARGETARCH
+
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y \
     ca-certificates \
@@ -13,8 +16,11 @@ RUN useradd -m -u 1000 gitsafe
 
 WORKDIR /app
 
-# Copy pre-built binary
-COPY binary/gitsafe /usr/local/bin/gitsafe
+# Copy pre-built binary based on target architecture
+COPY binary-${TARGETARCH}/gitsafe /usr/local/bin/gitsafe
+
+# Copy static web frontend files
+COPY api/static /app/static
 
 # Create necessary directories
 RUN mkdir -p /app/archives && chown -R gitsafe:gitsafe /app

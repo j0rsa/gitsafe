@@ -12,6 +12,10 @@ server:
   encryption_key: "change-me-in-production-use-a-long-random-string-for-encryption"
   # Number of sync attempts before disabling a repository (default: 5)
   sync_attempts: 5
+  # Directory path for serving static web files (default: "static".)
+  # Is read either from this file or from the environment variable GITSAFE__SERVER__STATIC_DIR 
+  # and never actually updated at runtime.
+  static_dir: "static"
   # Optional: List of webhook URLs to notify when sync errors occur
   # error_webhooks:
   #   - "https://example.com/webhook"

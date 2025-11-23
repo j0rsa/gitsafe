@@ -7,7 +7,7 @@ use crate::git::GitService;
 use crate::middleware::AuthenticatedUser;
 use crate::webhooks;
 use actix_web::{web, HttpMessage, HttpRequest, HttpResponse};
-use log::info;
+use log::{info, warn};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -43,7 +43,7 @@ async fn handle_sync_failure(
         repo.attempts_left = None;
         repo.enabled = false;
 
-        info!(
+        warn!(
             "Repository {} ran out of sync attempts and has been disabled",
             repo.id
         );

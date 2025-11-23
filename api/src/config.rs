@@ -41,10 +41,17 @@ pub struct ServerConfig {
     #[serde(default = "default_sync_attempts")]
     /// Number of sync attempts before disabling a repository
     pub sync_attempts: u32,
+    #[serde(default = "default_static_dir", skip_serializing)]
+    /// Directory path for serving static web files
+    pub static_dir: String,
 }
 
 fn default_sync_attempts() -> u32 {
     5
+}
+
+fn default_static_dir() -> String {
+    "static".to_string()
 }
 
 fn default_skip_auth() -> bool {
@@ -239,6 +246,7 @@ impl Default for Config {
                 error_webhooks: Vec::new(),
                 skip_auth: false,
                 sync_attempts: 5,
+                static_dir: default_static_dir(),
             },
             storage: StorageConfig {
                 archive_dir: "./archives".to_string(),

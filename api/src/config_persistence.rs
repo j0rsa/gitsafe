@@ -1,5 +1,5 @@
 use crate::config::Config;
-use log::{error, info};
+use log::{debug, error, info};
 use tokio::sync::mpsc;
 use tokio::time::{sleep, Duration};
 
@@ -133,7 +133,7 @@ impl ConfigPersistence {
         .await
         {
             Ok(Ok(())) => {
-                info!("Config saved successfully to {}", config_path);
+                debug!("Config saved successfully to {}", config_path);
             }
             Ok(Err(e)) => {
                 error!("Failed to save config: {}", e);

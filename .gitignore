@@ -34,3 +34,6 @@ api/static/*
 /target
 
 .DS_Store
+
+/archives
+config.yaml

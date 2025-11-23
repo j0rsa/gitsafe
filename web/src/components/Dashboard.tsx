@@ -173,7 +173,7 @@ export const Dashboard: React.FC = () => {
       if (filters.has_error !== undefined) {
         // A repository has an error if error is a non-empty string
         // New repositories should have error as null or undefined
-        const hasError = repo.error !== null && repo.error !== undefined && repo.error.trim() !== ''
+        const hasError = repo.error != null && repo.error.trim() !== ''
         if (filters.has_error !== hasError) return false
       }
 
@@ -320,7 +320,7 @@ export const Dashboard: React.FC = () => {
           nameSuggestions={nameSuggestions}
           urlSuggestions={urlSuggestions}
           inactiveCount={allRepositories.filter((r) => !r.enabled).length}
-          erroredCount={allRepositories.filter((r) => r.error !== null && r.error !== undefined && r.error.trim() !== '').length}
+          erroredCount={allRepositories.filter((r) => r.error != null && r.error.trim() !== '').length}
         />
         <div className="dashboard-controls">
           <div className="dashboard-controls-left">

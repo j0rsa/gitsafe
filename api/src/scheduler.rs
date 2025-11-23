@@ -2,7 +2,7 @@ use crate::config::Config;
 use crate::config_persistence::ConfigPersistence;
 use crate::git::GitService;
 use crate::webhooks;
-use log::{error, info};
+use log::{error, info, warn};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tokio_cron_scheduler::{Job, JobScheduler};
@@ -138,7 +138,7 @@ pub async fn setup_scheduler(
                                     repo_mut.attempts_left = None;
                                     repo_mut.enabled = false;
 
-                                    info!(
+                                    warn!(
                                     "Repository {} ran out of sync attempts and has been disabled",
                                     repo_mut.id
                                 );

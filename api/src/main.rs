@@ -27,11 +27,9 @@ fn get_config_path() -> String {
     env::var("CONFIG_PATH").unwrap_or_else(|_| DEFAULT_CONFIG_PATH.to_string())
 }
 
-const STATIC_DIR: &str = "static";
-
 /// SPA catch-all handler: serves index.html for any non-API route
-async fn spa_index() -> Result<fs::NamedFile> {
-    let index_path = Path::new(STATIC_DIR).join("index.html");
+async fn spa_index(static_dir: web::Data<String>) -> Result<fs::NamedFile> {
+    let index_path = Path::new(static_dir.as_str()).join("index.html");
     Ok(fs::NamedFile::open(index_path)?)
 }
 
@@ -56,7 +54,7 @@ async fn main() -> std::io::Result<()> {
         .expect("Failed to create archive directory");
 
     // Create static directory if it doesn't exist (for web frontend)
-    let static_dir = Path::new(STATIC_DIR);
+    let static_dir = Path::new(&config.server.static_dir);
     if !static_dir.exists() {
         std_fs::create_dir_all(static_dir).expect("Failed to create static directory");
         info!("Created static directory at {}", static_dir.display());
@@ -65,6 +63,7 @@ async fn main() -> std::io::Result<()> {
     let host = config.server.host.clone();
     let port = config.server.port;
     let jwt_secret = config.server.jwt_secret.clone();
+    let static_dir_path = config.server.static_dir.clone();
     let archive_dir = config.storage.archive_dir.clone();
     let compact = config.storage.compact;
 
@@ -96,9 +95,12 @@ async fn main() -> std::io::Result<()> {
         config_persistence,
     });
 
+    let static_dir_data = web::Data::new(static_dir_path.clone());
+    let static_dir_for_files = static_dir_path.clone();
     HttpServer::new(move || {
         App::new()
             .app_data(app_state.clone())
+            .app_data(static_dir_data.clone())
             // Public routes (no authentication required)
             .route("/health", web::get().to(handlers::health_check))
             .route("/api/login", web::post().to(handlers::login))
@@ -130,7 +132,7 @@ async fn main() -> std::io::Result<()> {
             )
             // Serve static files (JS, CSS, images, etc.) from static directory
             .service(
-                fs::Files::new("/", STATIC_DIR)
+                fs::Files::new("/", &static_dir_for_files)
                     .index_file("index.html")
                     .default_handler(web::route().to(spa_index)),
             )

@@ -88,6 +88,8 @@ pub struct AddCredentialRequest {
     pub password: String,
     /// SSH private key content or file path (can be empty if using password)
     pub ssh_key: Option<String>,
+    /// Optional credential ID. If not provided, will be auto-generated as UUID
+    pub id: Option<String>,
 }
 
 /// Credential information response (without sensitive data).
@@ -131,9 +133,19 @@ pub async fn login(
     state: web::Data<AppState>,
 ) -> Result<HttpResponse, AppError> {
     let config = state.config.read().await;
-    let token = state
-        .auth_service
-        .authenticate(&data.username, &data.password, &config.users)?;
+
+    // If skip_auth is enabled, bypass authentication and generate token with provided username
+    let token = if config.server.skip_auth {
+        state
+            .auth_service
+            .generate_token(&data.username)
+            .map_err(|e| AppError::InternalError(format!("Failed to generate token: {}", e)))?
+    } else {
+        // Normal authentication flow
+        state
+            .auth_service
+            .authenticate(&data.username, &data.password, &config.users)?
+    };
 
     Ok(HttpResponse::Ok().json(LoginResponse { token }))
 }
@@ -465,12 +477,27 @@ pub async fn add_credential(
         None
     };
 
-    let credential = Credential::try_new(
-        Uuid::new_v4().to_string(),
-        data.username.clone(),
-        password,
-        ssh_key,
-    )?;
+    // Use provided ID or generate UUID
+    let cred_id = if let Some(ref id) = data.id {
+        if id.trim().is_empty() {
+            return Err(AppError::BadRequest(
+                "Credential ID cannot be empty".to_string(),
+            ));
+        }
+        id.trim().to_string()
+    } else {
+        Uuid::new_v4().to_string()
+    };
+
+    // Check if ID already exists (for both provided and auto-generated IDs)
+    if config.credentials.contains_key(&cred_id) {
+        return Err(AppError::BadRequest(format!(
+            "Credential with ID '{}' already exists",
+            cred_id
+        )));
+    }
+
+    let credential = Credential::try_new(cred_id, data.username.clone(), password, ssh_key)?;
 
     let response = CredentialResponse {
         id: credential.id.clone(),

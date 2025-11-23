@@ -15,8 +15,22 @@ const App: React.FC = () => {
     const token = apiClient.getToken()
     if (token) {
       setIsAuthenticated(true)
+      setIsLoading(false)
+    } else {
+      // Auto-login with admin/empty password if no token
+      const attemptAutoLogin = async () => {
+        try {
+          await apiClient.login({ username: 'admin', password: '' })
+          setIsAuthenticated(true)
+        } catch (err) {
+          // Auto-login failed, show login form
+          setLoginError(null) // Don't show error for auto-login failure
+        } finally {
+          setIsLoading(false)
+        }
+      }
+      attemptAutoLogin()
     }
-    setIsLoading(false)
   }, [])
 
   const handleLogin = async (e: React.FormEvent) => {

@@ -21,16 +21,19 @@ export const CredentialManagementDialog: React.FC<CredentialManagementDialogProp
   const [editingId, setEditingId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [formData, setFormData] = useState<{
+    id: string
     username: string
     password: string
     ssh_key: string | null
   }>({
+    id: '',
     username: '',
     password: '',
     ssh_key: null,
   })
   const [showPassword, setShowPassword] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [idError, setIdError] = useState<string | null>(null)
 
   // Load credentials when dialog opens
   useEffect(() => {
@@ -54,19 +57,22 @@ export const CredentialManagementDialog: React.FC<CredentialManagementDialogProp
   }
 
   const resetForm = () => {
-    setFormData({ username: '', password: '', ssh_key: null })
+    setFormData({ id: '', username: '', password: '', ssh_key: null })
     setEditingId(null)
     setShowPassword(false)
+    setIdError(null)
   }
 
   const handleEdit = (credential: Credential) => {
     setEditingId(credential.id)
     setFormData({
+      id: credential.id, // Show ID but it's read-only for editing
       username: credential.username,
       password: '', // Don't show existing password
       ssh_key: null, // Don't show existing SSH key
     })
     setShowPassword(false)
+    setIdError(null)
   }
 
   const handleCancelEdit = () => {
@@ -94,14 +100,35 @@ export const CredentialManagementDialog: React.FC<CredentialManagementDialogProp
       return
     }
 
+    // Validate credential ID if provided (only for new credentials)
+    if (!editingId && formData.id.trim()) {
+      // Check if ID already exists in the current credentials list
+      if (credentials.some((c) => c.id === formData.id.trim())) {
+        setIdError('Credential ID already exists')
+        setError('Credential ID already exists')
+        return
+      }
+    }
+
     try {
       setSaving(true)
       setError(null)
+      setIdError(null)
 
-      const data = {
+      const data: {
+        username: string
+        password: string
+        ssh_key?: string | null
+        id?: string | null
+      } = {
         username: formData.username.trim(),
         password: hasPassword ? formData.password.trim() : '',
         ssh_key: hasSshKey && formData.ssh_key ? formData.ssh_key.trim() : (null as string | null | undefined),
+      }
+
+      // Only include ID for new credentials (not for updates)
+      if (!editingId && formData.id.trim()) {
+        data.id = formData.id.trim()
       }
 
       if (editingId) {
@@ -114,7 +141,12 @@ export const CredentialManagementDialog: React.FC<CredentialManagementDialogProp
       resetForm()
       onCredentialsChange?.()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save credential')
+      const errorMessage = err instanceof Error ? err.message : 'Failed to save credential'
+      setError(errorMessage)
+      // Check if error is about ID collision
+      if (errorMessage.includes('already exists')) {
+        setIdError(errorMessage)
+      }
     } finally {
       setSaving(false)
     }
@@ -166,6 +198,45 @@ export const CredentialManagementDialog: React.FC<CredentialManagementDialogProp
           {/* Form for Add/Edit */}
           <div className="credential-form">
             <h3>{editingId ? 'Edit Credential' : 'Add New Credential'}</h3>
+            {!editingId && (
+              <div className="dialog-field">
+                <label htmlFor="cred-id">Credential ID (Optional)</label>
+                <input
+                  id="cred-id"
+                  type="text"
+                  value={formData.id}
+                  onChange={(e) => {
+                    setFormData({ ...formData, id: e.target.value })
+                    setIdError(null)
+                  }}
+                  placeholder="Auto-generated if not provided"
+                  className={`dialog-input ${idError ? 'input-error' : ''}`}
+                />
+                {idError && (
+                  <div className="dialog-field-error" role="alert">
+                    {idError}
+                  </div>
+                )}
+                <div className="dialog-field-hint">
+                  Credential ID is optional. If not provided, a UUID will be auto-generated.
+                </div>
+              </div>
+            )}
+            {editingId && (
+              <div className="dialog-field">
+                <label htmlFor="cred-id-display">Credential ID</label>
+                <input
+                  id="cred-id-display"
+                  type="text"
+                  value={formData.id}
+                  disabled
+                  className="dialog-input-disabled"
+                />
+                <div className="dialog-field-hint">
+                  Credential ID cannot be changed after creation.
+                </div>
+              </div>
+            )}
             <div className="dialog-field">
               <label htmlFor="cred-username">Username</label>
               <input

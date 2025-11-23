@@ -114,7 +114,7 @@ class ApiClient {
     return this.request<Credential[]>('/credentials')
   }
 
-  async addCredential(data: { username: string; password: string; ssh_key?: string | null }): Promise<Credential> {
+  async addCredential(data: { username: string; password: string; ssh_key?: string | null; id?: string | null }): Promise<Credential> {
     return this.request<Credential>('/credentials', {
       method: 'POST',
       body: JSON.stringify(data),

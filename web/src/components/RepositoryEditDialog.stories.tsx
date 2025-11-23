@@ -162,14 +162,11 @@ export const ManyCredentials: Story = {
 export const SavingState: Story = {
   render: () => {
     const [isOpen, setIsOpen] = useState(true)
-    const [saving, setSaving] = useState(false)
 
     const handleSave = async (updates: { enabled: boolean; credential_id: string | null }) => {
       console.log('Saving:', updates)
-      setSaving(true)
       // Simulate long API call
       await new Promise((resolve) => setTimeout(resolve, 3000))
-      setSaving(false)
       setIsOpen(false)
     }
 

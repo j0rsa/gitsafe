@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react'
 import { FilterPanel } from './FilterPanel'
 import { useState } from 'react'
+import type { SearchFilters } from '../types'
 
 const meta: Meta<typeof FilterPanel> = {
   title: 'Components/FilterPanel',
@@ -34,7 +35,7 @@ export const Default: Story = {
 
 export const WithActiveFilters: Story = {
   render: () => {
-    const [filters, setFilters] = useState({ name: 'test', has_error: true })
+    const [filters, setFilters] = useState<SearchFilters>({ name: 'test', has_error: true })
     
     return (
       <div>

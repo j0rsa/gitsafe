@@ -31,12 +31,6 @@ const App: React.FC = () => {
     }
   }
 
-  const handleLogout = () => {
-    apiClient.clearToken()
-    setIsAuthenticated(false)
-    setUsername('')
-    setPassword('')
-  }
 
   if (isLoading) {
     return (

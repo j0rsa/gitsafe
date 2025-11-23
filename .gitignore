@@ -24,6 +24,10 @@ target
 config.yaml
 archives/
 
+# Ignore built web static files (except .gitkeep)
+api/static/*
+!api/static/.gitkeep
+
 
 # Added by cargo
 

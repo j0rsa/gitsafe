@@ -29,6 +29,7 @@ USER gitsafe
 
 # Expose API port
 EXPOSE 8080
+ENV RUST_LOG=info
 
 # Run the application
 CMD ["gitsafe"]

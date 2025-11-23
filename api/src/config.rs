@@ -211,7 +211,8 @@ impl Config {
 
 impl Default for Config {
     fn default() -> Self {
-        Config {
+        // Build config using default values, but allow env overrides (like in load)
+        let defaults = Config {
             server: ServerConfig {
                 host: "127.0.0.1".to_string(),
                 port: 8080,
@@ -229,6 +230,26 @@ impl Default for Config {
             repositories: Vec::new(),
             credentials: HashMap::new(),
             users: Vec::new(),
-        }
+        };
+
+        // Serialize defaults to YAML and add as a config source
+        let yaml_string = match serde_yaml_ng::to_string(&defaults) {
+            Ok(yaml) => yaml,
+            Err(_) => return defaults, // If serialization fails, return defaults directly
+        };
+
+        let mut builder = ConfigBuilder::builder();
+
+        // Add defaults from YAML string
+        builder = builder.add_source(File::from_str(&yaml_string, FileFormat::Yaml));
+
+        // Apply environment overrides (same as in load)
+        builder = builder.add_source(Environment::with_prefix("GITSAFE").separator("__"));
+
+        // Try to merge all and return
+        builder
+            .build()
+            .and_then(|c| c.try_deserialize())
+            .unwrap_or(defaults)
     }
 }

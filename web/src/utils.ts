@@ -67,3 +67,76 @@ export function formatRelativeTime(dateString: string | null): string {
   }
 }
 
+/**
+ * Generates a repository name from a Git URL.
+ * 
+ * Matches the logic from api/src/git.rs::repo_name_from_url
+ * 
+ * The name is constructed by:
+ * 1. Extracting the domain and replacing dots with underscores
+ * 2. Extracting path segments (user/org and repository name)
+ * 3. Joining all parts with dashes
+ * 4. Removing .git suffix if present
+ * 
+ * @param url - The Git repository URL
+ * @returns A string representation of the repository name suitable for use as a filename or directory name
+ * 
+ * @example
+ * repoNameFromUrl("https://github.com/example/repo1")
+ * // Returns: "github_com-example-repo1"
+ * 
+ * @example
+ * repoNameFromUrl("https://gitlab.com/user/org/my-repo.git")
+ * // Returns: "gitlab_com-user-org-my-repo"
+ */
+export function repoNameFromUrl(url: string): string {
+  const parts: string[] = []
+
+  try {
+    const parsedUrl = new URL(url)
+    
+    // Extract domain (replace dots with underscores)
+    if (parsedUrl.hostname) {
+      const domain = parsedUrl.hostname.replace(/\./g, '_')
+      parts.push(domain)
+    }
+
+    // Extract path segments (user/org and repo name)
+    const pathSegments = parsedUrl.pathname
+      .split('/')
+      .filter(segment => segment.length > 0)
+
+    for (const segment of pathSegments) {
+      // Remove .git suffix if present
+      const cleanSegment = segment.endsWith('.git') 
+        ? segment.slice(0, -4) 
+        : segment
+      parts.push(cleanSegment)
+    }
+  } catch {
+    // Fallback: try to extract manually
+    const protocolMatch = url.match(/^https?:\/\//)
+    if (protocolMatch) {
+      const afterProtocol = url.substring(protocolMatch[0].length)
+      const pathStart = afterProtocol.indexOf('/')
+      
+      if (pathStart !== -1) {
+        const domain = afterProtocol.substring(0, pathStart).replace(/\./g, '_')
+        parts.push(domain)
+
+        const path = afterProtocol.substring(pathStart + 1)
+        const pathSegments = path.split('/').filter(segment => segment.length > 0)
+        
+        for (const segment of pathSegments) {
+          const cleanSegment = segment.endsWith('.git') 
+            ? segment.slice(0, -4) 
+            : segment
+          parts.push(cleanSegment)
+        }
+      }
+    }
+  }
+
+  return parts.join('-')
+}
+

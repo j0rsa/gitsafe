@@ -51,6 +51,8 @@ pub struct AddRepositoryRequest {
     pub url: String,
     /// Optional credential ID for authenticated access
     pub credential_id: Option<String>,
+    /// Optional repository ID. If not provided, will be generated from URL using repo_name_from_url logic
+    pub id: Option<String>,
 }
 
 /// Request payload for updating repository settings.
@@ -198,8 +200,28 @@ pub async fn add_repository(
 ) -> Result<HttpResponse, AppError> {
     let mut config = state.config.write().await;
 
+    // Use provided ID or generate from URL using repo_name_from_url logic
+    let repo_id = if let Some(ref id) = data.id {
+        if id.trim().is_empty() {
+            return Err(AppError::BadRequest(
+                "Repository ID cannot be empty".to_string(),
+            ));
+        }
+        id.trim().to_string()
+    } else {
+        crate::git::GitService::repo_name_from_url(&data.url)
+    };
+
+    // Check if ID already exists (for both provided and auto-generated IDs)
+    if config.repositories.iter().any(|r| r.id == repo_id) {
+        return Err(AppError::BadRequest(format!(
+            "Repository with ID '{}' already exists",
+            repo_id
+        )));
+    }
+
     let repository = Repository {
-        id: Uuid::new_v4().to_string(),
+        id: repo_id,
         url: data.url.clone(),
         credential_id: data.credential_id.clone(),
         enabled: true,

@@ -150,7 +150,7 @@ export const RepositoryEditDialog: React.FC<RepositoryEditDialogProps> = ({
             </button>
           </div>
 
-          {repository.error && (
+          {repository.error && repository.error.trim() !== '' && (
             <div className="dialog-error-section">
               <label>Last Error</label>
               <div className="dialog-error-display">

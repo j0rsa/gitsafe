@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import type { Credential } from '../types'
 import { Autocomplete } from './Autocomplete'
+import { repoNameFromUrl } from '../utils'
 import './RepositoryEditDialog.css'
 
 export interface RepositoryAddDialogProps {
   credentials: Credential[]
   isOpen: boolean
   onClose: () => void
-  onSave: (data: { url: string; credential_id: string | null }) => Promise<void>
+  onSave: (data: { url: string; credential_id: string | null; id: string | null }) => Promise<void>
   urlSuggestions?: string[]
 }
 
@@ -20,19 +21,39 @@ export const RepositoryAddDialog: React.FC<RepositoryAddDialogProps> = ({
   urlSuggestions = [],
 }) => {
   const [url, setUrl] = useState('')
+  const [repositoryId, setRepositoryId] = useState('')
   const [credentialId, setCredentialId] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [credentialError, setCredentialError] = useState<string | null>(null)
+  const [idError, setIdError] = useState<string | null>(null)
 
   useEffect(() => {
     if (isOpen) {
       setUrl('')
+      setRepositoryId('')
       setCredentialId('')
       setError(null)
       setCredentialError(null)
+      setIdError(null)
     }
   }, [isOpen])
+
+  // Calculate repository ID from URL when URL changes
+  useEffect(() => {
+    if (url.trim()) {
+      try {
+        new URL(url) // Validate URL
+        const calculatedId = repoNameFromUrl(url)
+        setRepositoryId(calculatedId)
+        setIdError(null)
+      } catch {
+        // Invalid URL, don't update ID
+      }
+    } else {
+      setRepositoryId('')
+    }
+  }, [url])
 
   // Clear error when user starts typing in URL field
   const handleUrlChange = (value: string) => {
@@ -40,6 +61,12 @@ export const RepositoryAddDialog: React.FC<RepositoryAddDialogProps> = ({
     if (error) {
       setError(null)
     }
+  }
+
+  // Handle repository ID change
+  const handleRepositoryIdChange = (value: string) => {
+    setRepositoryId(value)
+    setIdError(null)
   }
 
   const credentialSuggestions = credentials.map((c) => c.id)
@@ -70,6 +97,13 @@ export const RepositoryAddDialog: React.FC<RepositoryAddDialogProps> = ({
       return
     }
 
+    // Validate repository ID
+    if (!repositoryId.trim()) {
+      setIdError('Repository ID is required')
+      setError('Repository ID is required')
+      return
+    }
+
     // Validate credential ID if provided
     if (credentialId.trim()) {
       if (!credentialSuggestions.includes(credentialId.trim())) {
@@ -83,9 +117,11 @@ export const RepositoryAddDialog: React.FC<RepositoryAddDialogProps> = ({
       setSaving(true)
       setError(null)
       setCredentialError(null)
+      setIdError(null)
       await onSave({
         url: url.trim(),
         credential_id: credentialId.trim() || null,
+        id: repositoryId.trim() || null,
       })
       // Only close on success
       onClose()
@@ -106,8 +142,10 @@ export const RepositoryAddDialog: React.FC<RepositoryAddDialogProps> = ({
 
   const handleCancel = () => {
     setUrl('')
+    setRepositoryId('')
     setCredentialId('')
     setError(null)
+    setIdError(null)
     onClose()
   }
 
@@ -136,6 +174,26 @@ export const RepositoryAddDialog: React.FC<RepositoryAddDialogProps> = ({
               moveCursorToEnd={true}
               openOnEmptyFocus={false}
             />
+          </div>
+
+          <div className="dialog-field">
+            <label htmlFor="repository-id-input">Repository ID</label>
+            <input
+              id="repository-id-input"
+              type="text"
+              value={repositoryId}
+              onChange={(e) => handleRepositoryIdChange(e.target.value)}
+              placeholder="Auto-generated from URL"
+              className={idError ? 'input-error' : ''}
+            />
+            {idError && (
+              <div className="dialog-field-error" role="alert">
+                {idError}
+              </div>
+            )}
+            <div className="dialog-field-hint">
+              Repository ID is automatically calculated from the URL. You can edit it if needed.
+            </div>
           </div>
 
           <div className="dialog-field">

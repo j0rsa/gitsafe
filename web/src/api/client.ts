@@ -156,7 +156,7 @@ class ApiClient {
     })
   }
 
-  async addRepository(data: { url: string; credential_id?: string | null }): Promise<Repository> {
+  async addRepository(data: { url: string; credential_id?: string | null; id?: string | null }): Promise<Repository> {
     return this.request('/repositories', {
       method: 'POST',
       body: JSON.stringify(data),

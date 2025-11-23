@@ -91,6 +91,41 @@
   font-size: 0.75rem;
 }
 
+.dialog-field-hint {
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  color: #6b7280;
+  font-style: italic;
+}
+
+.dialog-field input[type="text"],
+.dialog-field input[type="url"] {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  box-sizing: border-box;
+  transition: border-color 0.2s;
+}
+
+.dialog-field input[type="text"]:focus,
+.dialog-field input[type="url"]:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.dialog-field input.input-error {
+  border-color: #ef4444;
+  background-color: #fef2f2;
+}
+
+.dialog-field input.input-error:focus {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
 .dialog-field label {
   display: block;
   font-size: 0.875rem;

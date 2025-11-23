@@ -27,7 +27,7 @@ export const RepositoryTile: React.FC<RepositoryTileProps> = ({
 
   // Handle touch start on badge (mobile)
   const handleTouchStart = (e: React.TouchEvent) => {
-    if (repository.error) {
+    if (repository.error && repository.error.trim() !== '') {
       const touch = e.touches[0]
       touchStartRef.current = { x: touch.clientX, y: touch.clientY }
       // Show tooltip on tap
@@ -105,7 +105,7 @@ export const RepositoryTile: React.FC<RepositoryTileProps> = ({
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
           >
-            {repository.error && (
+            {repository.error && repository.error.trim() !== '' && (
               <span
                 className={`status-badge-icon status-badge-icon-tooltip ${showTooltip ? 'tooltip-visible' : ''}`}
                 data-tooltip={repository.error}

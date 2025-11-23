@@ -229,7 +229,10 @@ impl Default for Config {
             },
             repositories: Vec::new(),
             credentials: HashMap::new(),
-            users: Vec::new(),
+            users: vec![User {
+                username: "admin".to_string(),
+                password_hash: bcrypt::hash("admin", bcrypt::DEFAULT_COST).unwrap(),
+            }],
         };
 
         // Serialize defaults to YAML and add as a config source

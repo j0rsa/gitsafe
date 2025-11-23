@@ -9,7 +9,8 @@ fn test_default_config() {
     assert_eq!(config.storage.archive_dir, "./archives");
     assert_eq!(config.repositories.len(), 0);
     assert_eq!(config.credentials.len(), 0);
-    assert_eq!(config.users.len(), 0);
+    assert_eq!(config.users.len(), 1);
+    assert_eq!(config.users[0].username, "admin");
 }
 
 #[test]
@@ -49,8 +50,9 @@ fn test_config_serialization() {
     // Deserialize back
     let deserialized: Config = serde_yaml_ng::from_str(&yaml).unwrap();
 
-    assert_eq!(deserialized.users.len(), 1);
-    assert_eq!(deserialized.users[0].username, "test");
+    assert_eq!(deserialized.users.len(), 2); // admin (default) + test
+    assert!(deserialized.users.iter().any(|u| u.username == "admin"));
+    assert!(deserialized.users.iter().any(|u| u.username == "test"));
     assert_eq!(deserialized.repositories.len(), 1);
     assert_eq!(deserialized.repositories[0].id, "repo1");
     assert_eq!(deserialized.credentials.len(), 1);

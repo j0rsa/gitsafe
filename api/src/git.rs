@@ -87,11 +87,33 @@ impl GitService {
     ///
     /// let id = GitService::repo_id_from_url("https://gitlab.com/user/org/my-repo.git");
     /// assert_eq!(id, "gitlab_com-user-org-my-repo");
+    ///
+    /// let id = GitService::repo_id_from_url("git@github.com:example/repo1.git");
+    /// assert_eq!(id, "github_com-example-repo1");
     /// ```
     pub fn repo_id_from_url(url: &str) -> String {
         let mut parts = Vec::new();
 
-        // Parse URL
+        // Check for SSH URL format: git@host:path
+        if let Some(at_pos) = url.find('@') {
+            if let Some(colon_pos) = url[at_pos..].find(':') {
+                let host = &url[at_pos + 1..at_pos + colon_pos];
+                let domain = host.replace('.', "_");
+                parts.push(domain);
+
+                let path = &url[at_pos + colon_pos + 1..];
+                let path_segments: Vec<&str> = path.split('/').collect();
+                for segment in path_segments {
+                    if !segment.is_empty() {
+                        let clean_segment = segment.strip_suffix(".git").unwrap_or(segment);
+                        parts.push(clean_segment.to_string());
+                    }
+                }
+                return parts.join("-");
+            }
+        }
+
+        // Parse URL (HTTP/HTTPS)
         if let Ok(parsed) = url::Url::parse(url) {
             // Extract domain (replace dots with underscores)
             if let Some(host) = parsed.host_str() {
@@ -172,11 +194,42 @@ impl GitService {
     ///
     /// let path = GitService::repo_path_from_url("https://gitlab.com/user/org/my-repo.git", true);
     /// assert_eq!(path, "gitlab_com/user/org/my-repo.tar.gz");
+    ///
+    /// // SSH URL support
+    /// let path = GitService::repo_path_from_url("git@github.com:example/repo1.git", true);
+    /// assert_eq!(path, "github_com/example/repo1.tar.gz");
+    ///
+    /// let path = GitService::repo_path_from_url("git@github.com:example/repo1.git", false);
+    /// assert_eq!(path, "github_com/example/repo1");
     /// ```
     pub fn repo_path_from_url(url: &str, compact: bool) -> String {
         let mut parts = Vec::new();
 
-        // Parse URL
+        // Check for SSH URL format: git@host:path
+        if let Some(at_pos) = url.find('@') {
+            if let Some(colon_pos) = url[at_pos..].find(':') {
+                let host = &url[at_pos + 1..at_pos + colon_pos];
+                let domain = host.replace('.', "_");
+                parts.push(domain);
+
+                let path = &url[at_pos + colon_pos + 1..];
+                let path_segments: Vec<&str> = path.split('/').collect();
+                for segment in path_segments {
+                    if !segment.is_empty() {
+                        let clean_segment = segment.strip_suffix(".git").unwrap_or(segment);
+                        parts.push(clean_segment.to_string());
+                    }
+                }
+                let base_path = parts.join("/");
+                return if compact {
+                    format!("{}.tar.gz", base_path)
+                } else {
+                    base_path
+                };
+            }
+        }
+
+        // Parse URL (HTTP/HTTPS)
         if let Ok(parsed) = url::Url::parse(url) {
             // Extract domain (replace dots with underscores)
             if let Some(host) = parsed.host_str() {

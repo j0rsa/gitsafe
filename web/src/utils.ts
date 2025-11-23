@@ -23,6 +23,10 @@ export function formatRelativeTime(dateString: string | null): string {
 
   try {
     const date = new Date(dateString)
+    // Check if date is valid
+    if (isNaN(date.getTime())) {
+      return 'Invalid date'
+    }
     const now = new Date()
     const diffMs = now.getTime() - date.getTime()
     const diffSeconds = Math.floor(diffMs / 1000)
@@ -78,6 +82,8 @@ export function formatRelativeTime(dateString: string | null): string {
  * 3. Joining all parts with dashes
  * 4. Removing .git suffix if present
  * 
+ * Supports both HTTP/HTTPS URLs and SSH URLs (git@host:path)
+ * 
  * @param url - The Git repository URL
  * @returns A string representation of the repository ID suitable for use as an identifier
  * 
@@ -88,10 +94,38 @@ export function formatRelativeTime(dateString: string | null): string {
  * @example
  * repoNameFromUrl("https://gitlab.com/user/org/my-repo.git")
  * // Returns: "gitlab_com-user-org-my-repo"
+ * 
+ * @example
+ * repoNameFromUrl("git@github.com:example/repo1.git")
+ * // Returns: "github_com-example-repo1"
  */
 export function repoNameFromUrl(url: string): string {
   const parts: string[] = []
 
+  // Check for SSH URL format: git@host:path
+  const atIndex = url.indexOf('@')
+  if (atIndex !== -1) {
+    const afterAt = url.substring(atIndex + 1)
+    const colonIndex = afterAt.indexOf(':')
+    if (colonIndex !== -1) {
+      const host = afterAt.substring(0, colonIndex)
+      const domain = host.replace(/\./g, '_')
+      parts.push(domain)
+
+      const path = afterAt.substring(colonIndex + 1)
+      const pathSegments = path.split('/').filter(segment => segment.length > 0)
+      
+      for (const segment of pathSegments) {
+        const cleanSegment = segment.endsWith('.git') 
+          ? segment.slice(0, -4) 
+          : segment
+        parts.push(cleanSegment)
+      }
+      return parts.join('-')
+    }
+  }
+
+  // Parse HTTP/HTTPS URL
   try {
     const parsedUrl = new URL(url)
     

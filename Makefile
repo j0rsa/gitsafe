@@ -46,6 +46,9 @@ test:
 	@echo "🔍 Running TypeScript type check..."
 	@cd web && bun run lint
 	@echo ""
+	@echo "🧪 Running tests..."
+	@cd web && bun run test:run
+	@echo ""
 	@echo "=========================================="
 	@echo "✅ All checks passed!"
 	@echo "=========================================="
@@ -77,6 +80,9 @@ fix:
 	@echo ""
 	@echo "🔍 Running TypeScript type check..."
 	@cd web && bun run lint || (echo "❌ TypeScript errors require manual fixes" && exit 1)
+	@echo ""
+	@echo "🧪 Running tests..."
+	@cd web && bun run test:run || (echo "❌ Web tests failed" && exit 1)
 	@echo ""
 	@echo "=========================================="
 	@echo "✅ All checks passed!"

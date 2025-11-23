@@ -22,6 +22,18 @@ fn test_repo_id_from_url() {
     // Test URL with port
     let id = GitService::repo_id_from_url("https://git.example.com:8443/user/repo");
     assert_eq!(id, "git_example_com-user-repo");
+
+    // Test SSH URL
+    let id = GitService::repo_id_from_url("git@github.com:example/repo1.git");
+    assert_eq!(id, "github_com-example-repo1");
+
+    // Test SSH URL with multiple path segments
+    let id = GitService::repo_id_from_url("git@github.com:org/team/repo.git");
+    assert_eq!(id, "github_com-org-team-repo");
+
+    // Test SSH URL without .git suffix
+    let id = GitService::repo_id_from_url("git@gitlab.com:group/project");
+    assert_eq!(id, "gitlab_com-group-project");
 }
 
 #[test]
@@ -65,6 +77,30 @@ fn test_repo_path_from_url() {
     // Test URL with port - non-compact mode
     let path = GitService::repo_path_from_url("https://git.example.com:8443/user/repo", false);
     assert_eq!(path, "git_example_com/user/repo");
+
+    // Test SSH URL - compact mode
+    let path = GitService::repo_path_from_url("git@github.com:example/repo1.git", true);
+    assert_eq!(path, "github_com/example/repo1.tar.gz");
+
+    // Test SSH URL - non-compact mode
+    let path = GitService::repo_path_from_url("git@github.com:example/repo1.git", false);
+    assert_eq!(path, "github_com/example/repo1");
+
+    // Test SSH URL with multiple path segments - compact mode
+    let path = GitService::repo_path_from_url("git@github.com:org/team/repo.git", true);
+    assert_eq!(path, "github_com/org/team/repo.tar.gz");
+
+    // Test SSH URL with multiple path segments - non-compact mode
+    let path = GitService::repo_path_from_url("git@github.com:org/team/repo.git", false);
+    assert_eq!(path, "github_com/org/team/repo");
+
+    // Test SSH URL without .git suffix - compact mode
+    let path = GitService::repo_path_from_url("git@gitlab.com:group/project", true);
+    assert_eq!(path, "gitlab_com/group/project.tar.gz");
+
+    // Test SSH URL without .git suffix - non-compact mode
+    let path = GitService::repo_path_from_url("git@gitlab.com:group/project", false);
+    assert_eq!(path, "gitlab_com/group/project");
 }
 
 #[test]

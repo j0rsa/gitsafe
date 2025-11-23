@@ -9,7 +9,9 @@
     "lint:fix": "tsc --noEmit && echo 'TypeScript check passed. Use your editor to auto-fix formatting.'",
     "preview": "vite preview",
     "storybook": "storybook dev -p 6006",
-    "build-storybook": "storybook build"
+    "build-storybook": "storybook build",
+    "test": "vitest",
+    "test:run": "vitest run"
   },
   "dependencies": {
     "react": "^18.2.0",
@@ -27,8 +29,10 @@
     "@types/react-dom": "^18.2.17",
     "@vitejs/plugin-react": "^4.2.1",
     "esbuild": "^0.27.0",
+    "jsdom": "^23.0.0",
     "storybook": "^7.6.17",
     "typescript": "^5.3.3",
-    "vite": "^5.0.8"
+    "vite": "^5.0.8",
+    "vitest": "^1.0.0"
   }
 }

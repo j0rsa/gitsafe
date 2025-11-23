@@ -11,6 +11,7 @@ export interface Repository {
 export interface Credential {
   id: string
   username: string
+  is_ssh_key: boolean
 }
 
 export interface CredentialFormData {

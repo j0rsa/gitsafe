@@ -169,6 +169,8 @@ pub struct CredentialResponse {
     pub id: String,
     /// Username
     pub username: String,
+    /// Whether this credential uses an SSH key
+    pub is_ssh_key: bool,
 }
 
 /// Request payload for manually syncing a repository.
@@ -195,6 +197,35 @@ pub fn get_authenticated_user(req: &HttpRequest) -> Result<String, AppError> {
         .get::<AuthenticatedUser>()
         .map(|user| user.0.clone())
         .ok_or_else(|| AppError::AuthError("User not authenticated".to_string()))
+}
+
+/// Determines if a Git URL is an SSH URL (git@host:path) or HTTP/HTTPS URL.
+///
+/// SSH URLs have the format: git@host:path
+/// HTTP URLs with basic auth have the format: https://user:pass@host/path
+///
+/// The key difference: SSH URLs have `:` after the host (before path),
+/// while HTTP URLs with basic auth have `/` after the host.
+fn is_ssh_url(url: &str) -> bool {
+    if let Some(at_pos) = url.find('@') {
+        let after_at = &url[at_pos + 1..];
+        // Find the first occurrence of ':' or '/' after '@'
+        if let Some(colon_pos) = after_at.find(':') {
+            if let Some(slash_pos) = after_at.find('/') {
+                // If ':' comes before '/', it's SSH format (git@host:path)
+                colon_pos < slash_pos
+            } else {
+                // No '/' found, so ':' indicates SSH format
+                true
+            }
+        } else {
+            // No ':' found, so it's not SSH format
+            false
+        }
+    } else {
+        // No '@' found, so it's not SSH format
+        false
+    }
 }
 
 // Handlers
@@ -303,6 +334,30 @@ pub async fn add_repository(
         )));
     }
 
+    // Validate credential type matches URL type if credential is provided
+    if let Some(ref credential_id) = data.credential_id {
+        if let Some(credential) = config.credentials.get(credential_id) {
+            // Check if URL is SSH format (git@host:path)
+            let url_is_ssh = is_ssh_url(&data.url);
+
+            // Check if credential has SSH key
+            let credential_is_ssh = credential
+                .ssh_key
+                .as_ref()
+                .map(|k| !k.is_empty())
+                .unwrap_or(false);
+
+            // SSH URLs allow both SSH key and password credentials
+            // HTTP/HTTPS URLs only allow password credentials (not SSH keys)
+            if !url_is_ssh && credential_is_ssh {
+                return Err(AppError::BadRequest(
+                    "HTTP/HTTPS URLs require credentials with username/password, not SSH keys"
+                        .to_string(),
+                ));
+            }
+        }
+    }
+
     let repository = Repository {
         id: repo_id,
         url: data.url.clone(),
@@ -341,6 +396,46 @@ pub async fn update_repository(
     let repo_id = path.into_inner();
     let mut config = state.config.write().await;
 
+    // Find repository and get its URL for validation
+    let repo_url = config
+        .repositories
+        .iter()
+        .find(|r| r.id == repo_id)
+        .map(|r| r.url.clone())
+        .ok_or_else(|| AppError::NotFound(format!("Repository {} not found", repo_id)))?;
+
+    // Validate credential if provided (before getting mutable reference)
+    if let Some(ref credential_id) = data.credential_id {
+        if !credential_id.trim().is_empty() {
+            // Validate credential exists and type matches URL type
+            if let Some(credential) = config.credentials.get(credential_id.trim()) {
+                // Check if URL is SSH format (git@host:path)
+                let url_is_ssh = is_ssh_url(&repo_url);
+
+                // Check if credential has SSH key
+                let credential_is_ssh = credential
+                    .ssh_key
+                    .as_ref()
+                    .map(|k| !k.is_empty())
+                    .unwrap_or(false);
+
+                // SSH URLs allow both SSH key and password credentials
+                // HTTP/HTTPS URLs only allow password credentials (not SSH keys)
+                if !url_is_ssh && credential_is_ssh {
+                    return Err(AppError::BadRequest(
+                        "HTTP/HTTPS URLs require credentials with username/password, not SSH keys"
+                            .to_string(),
+                    ));
+                }
+            } else {
+                return Err(AppError::BadRequest(format!(
+                    "Credential {} not found",
+                    credential_id.trim()
+                )));
+            }
+        }
+    }
+
     let repository = config
         .repositories
         .iter_mut()
@@ -355,6 +450,7 @@ pub async fn update_repository(
     // Update credential_id if provided
     // The frontend sends: string (with value), empty string, or null
     // Empty string or null both mean "no credential"
+    // Validation was already done above before getting mutable reference
     if let Some(ref credential_id) = data.credential_id {
         if credential_id.trim().is_empty() {
             repository.credential_id = None;
@@ -535,6 +631,7 @@ pub async fn list_credentials(state: web::Data<AppState>) -> Result<HttpResponse
         .map(|c| CredentialResponse {
             id: c.id.clone(),
             username: c.username.clone(),
+            is_ssh_key: c.ssh_key.is_some() && !c.ssh_key.as_ref().unwrap().is_empty(),
         })
         .collect();
 
@@ -607,11 +704,13 @@ pub async fn add_credential(
         )));
     }
 
-    let credential = Credential::try_new(cred_id, data.username.clone(), password, ssh_key)?;
+    let credential =
+        Credential::try_new(cred_id, data.username.clone(), password, ssh_key.clone())?;
 
     let response = CredentialResponse {
         id: credential.id.clone(),
         username: credential.username.clone(),
+        is_ssh_key: ssh_key.is_some() && !ssh_key.as_ref().unwrap().is_empty(),
     };
 
     config.credentials.insert(credential.id.clone(), credential);
@@ -693,11 +792,12 @@ pub async fn update_credential(
     // Update the credential (validation passed)
     credential.username = data.username.clone();
     credential.password = final_password;
-    credential.ssh_key = final_ssh_key;
+    credential.ssh_key = final_ssh_key.clone();
 
     let response = CredentialResponse {
         id: credential.id.clone(),
         username: credential.username.clone(),
+        is_ssh_key: final_ssh_key.is_some() && !final_ssh_key.as_ref().unwrap().is_empty(),
     };
 
     let config_to_save = config.clone();

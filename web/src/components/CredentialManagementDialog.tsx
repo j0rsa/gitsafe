@@ -333,7 +333,14 @@ export const CredentialManagementDialog: React.FC<CredentialManagementDialogProp
                 {credentials.map((cred) => (
                   <div key={cred.id} className="credential-item">
                     <div className="credential-info">
-                      <div className="credential-id">{cred.id}</div>
+                      <div className="credential-id">
+                        {cred.id}
+                        {cred.is_ssh_key && (
+                          <span className="credential-badge credential-badge-ssh" title="SSH Key Credential">
+                            SSH
+                          </span>
+                        )}
+                      </div>
                       <div className="credential-username">{cred.username}</div>
                     </div>
                     <div className="credential-actions">

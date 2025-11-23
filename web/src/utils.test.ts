@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { formatBytes, formatRelativeTime, repoNameFromUrl } from './utils'
+import { formatBytes, formatRelativeTime, repoNameFromUrl, isSshUrl } from './utils'
 
 describe('formatBytes', () => {
   it('should return "0 B" for null', () => {
@@ -205,6 +205,31 @@ describe('repoNameFromUrl', () => {
       // Should not throw, but may return empty or partial result
       expect(() => repoNameFromUrl('not-a-url')).not.toThrow()
     })
+  })
+})
+
+describe('isSshUrl', () => {
+  it('should return true for SSH URLs', () => {
+    expect(isSshUrl('git@github.com:user/repo.git')).toBe(true)
+    expect(isSshUrl('git@gitlab.com:group/project.git')).toBe(true)
+    expect(isSshUrl('user@example.com:path/to/repo.git')).toBe(true)
+  })
+
+  it('should return false for HTTP/HTTPS URLs', () => {
+    expect(isSshUrl('https://github.com/user/repo.git')).toBe(false)
+    expect(isSshUrl('http://github.com/user/repo.git')).toBe(false)
+    expect(isSshUrl('https://gitlab.com/group/project.git')).toBe(false)
+  })
+
+  it('should return false for HTTP URLs with basic auth', () => {
+    expect(isSshUrl('https://user:pass@github.com/user/repo.git')).toBe(false)
+    expect(isSshUrl('http://username:password@gitlab.com/group/project.git')).toBe(false)
+    expect(isSshUrl('https://token@github.com/user/repo.git')).toBe(false)
+  })
+
+  it('should return false for URLs without @ sign', () => {
+    expect(isSshUrl('https://github.com/user/repo.git')).toBe(false)
+    expect(isSshUrl('http://example.com/repo.git')).toBe(false)
   })
 })
 

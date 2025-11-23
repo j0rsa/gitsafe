@@ -22,11 +22,11 @@ export default meta
 type Story = StoryObj<typeof RepositoryAddDialog>
 
 const sampleCredentials: Credential[] = [
-  { id: 'cred-123', username: 'user1' },
-  { id: 'cred-456', username: 'user2' },
-  { id: 'cred-789', username: 'user3' },
-  { id: 'cred-abc', username: 'github-user' },
-  { id: 'cred-def', username: 'gitlab-user' },
+  { id: 'cred-123', username: 'user1', is_ssh_key: false },
+  { id: 'cred-456', username: 'user2', is_ssh_key: false },
+  { id: 'cred-789', username: 'user3', is_ssh_key: true },
+  { id: 'cred-abc', username: 'github-user', is_ssh_key: true },
+  { id: 'cred-def', username: 'gitlab-user', is_ssh_key: false },
 ]
 
 const sampleUrlSuggestions = [
@@ -89,16 +89,16 @@ export const ManyCredentials: Story = {
     <DialogWrapper
       credentials={[
         ...sampleCredentials,
-        { id: 'cred-001', username: 'credential-001' },
-        { id: 'cred-002', username: 'credential-002' },
-        { id: 'cred-003', username: 'credential-003' },
-        { id: 'cred-004', username: 'credential-004' },
-        { id: 'cred-005', username: 'credential-005' },
-        { id: 'cred-006', username: 'credential-006' },
-        { id: 'cred-007', username: 'credential-007' },
-        { id: 'cred-008', username: 'credential-008' },
-        { id: 'cred-009', username: 'credential-009' },
-        { id: 'cred-010', username: 'credential-010' },
+        { id: 'cred-001', username: 'credential-001', is_ssh_key: false },
+        { id: 'cred-002', username: 'credential-002', is_ssh_key: false },
+        { id: 'cred-003', username: 'credential-003', is_ssh_key: true },
+        { id: 'cred-004', username: 'credential-004', is_ssh_key: false },
+        { id: 'cred-005', username: 'credential-005', is_ssh_key: true },
+        { id: 'cred-006', username: 'credential-006', is_ssh_key: false },
+        { id: 'cred-007', username: 'credential-007', is_ssh_key: false },
+        { id: 'cred-008', username: 'credential-008', is_ssh_key: true },
+        { id: 'cred-009', username: 'credential-009', is_ssh_key: false },
+        { id: 'cred-010', username: 'credential-010', is_ssh_key: false },
       ]}
       urlSuggestions={sampleUrlSuggestions}
     />

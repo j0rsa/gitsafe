@@ -174,3 +174,52 @@ export function repoNameFromUrl(url: string): string {
   return parts.join('-')
 }
 
+/**
+ * Determines if a Git URL is an SSH URL (git@host:path) or HTTP/HTTPS URL.
+ * 
+ * SSH URLs have the format: git@host:path
+ * HTTP URLs with basic auth have the format: https://user:pass@host/path
+ * 
+ * The key difference: SSH URLs have `:` after the host (before path),
+ * while HTTP URLs with basic auth have `/` after the host.
+ * 
+ * @param url - The Git repository URL
+ * @returns true if the URL is an SSH URL, false if it's HTTP/HTTPS
+ * 
+ * @example
+ * isSshUrl("git@github.com:user/repo.git")
+ * // Returns: true
+ * 
+ * @example
+ * isSshUrl("https://github.com/user/repo.git")
+ * // Returns: false
+ * 
+ * @example
+ * isSshUrl("https://user:pass@github.com/user/repo.git")
+ * // Returns: false (HTTP with basic auth)
+ */
+export function isSshUrl(url: string): boolean {
+  const atIndex = url.indexOf('@')
+  if (atIndex === -1) {
+    return false
+  }
+  
+  const afterAt = url.substring(atIndex + 1)
+  const colonIndex = afterAt.indexOf(':')
+  const slashIndex = afterAt.indexOf('/')
+  
+  if (colonIndex === -1) {
+    // No ':' found, so it's not SSH format
+    return false
+  }
+  
+  if (slashIndex === -1) {
+    // No '/' found, so ':' indicates SSH format
+    return true
+  }
+  
+  // If ':' comes before '/', it's SSH format (git@host:path)
+  // If '/' comes before ':', it's HTTP with basic auth (https://user:pass@host/path)
+  return colonIndex < slashIndex
+}
+

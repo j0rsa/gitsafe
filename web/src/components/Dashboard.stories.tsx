@@ -65,9 +65,9 @@ const sampleRepositories: Repository[] = [
 ]
 
 const sampleCredentials: Credential[] = [
-  { id: 'cred-1', username: 'user1' },
-  { id: 'cred-2', username: 'user2' },
-  { id: 'cred-3', username: 'user3' },
+  { id: 'cred-1', username: 'user1', is_ssh_key: false },
+  { id: 'cred-2', username: 'user2', is_ssh_key: false },
+  { id: 'cred-3', username: 'user3', is_ssh_key: true },
 ]
 
 // Note: API client methods are mocked in decorators below

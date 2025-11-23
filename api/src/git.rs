@@ -735,8 +735,9 @@ impl GitService {
 
         if analysis.0.is_up_to_date() {
             info!("Repository is already up to date");
-        } else if analysis.0.is_fast_forward() {
-            // Fast-forward merge
+        } else {
+            // Always reset to remote state, discarding any local changes
+            // This ensures we always match the remote repository state and never create merge commits
             let head = git_repo
                 .head()
                 .map_err(|e| AppError::GitError(format!("Failed to get HEAD: {}", e)))?;
@@ -744,11 +745,24 @@ impl GitService {
                 .name()
                 .ok_or_else(|| AppError::GitError("Failed to get branch name".to_string()))?;
 
+            // Get the commit object from the annotated commit
+            let fetch_commit_obj = git_repo.find_object(fetch_commit.id(), None).map_err(|e| {
+                AppError::GitError(format!("Failed to find fetch commit object: {}", e))
+            })?;
+
+            // Reset HEAD to the fetched commit (remote state), discarding local changes
+            git_repo
+                .reset(&fetch_commit_obj, git2::ResetType::Hard, None)
+                .map_err(|e| {
+                    AppError::GitError(format!("Failed to reset to remote state: {}", e))
+                })?;
+
+            // Update the branch reference to point to the remote commit
             let mut reference = git_repo.find_reference(branch_name).map_err(|e| {
                 AppError::GitError(format!("Failed to find branch {}: {}", branch_name, e))
             })?;
             reference
-                .set_target(fetch_commit.id(), "Fast-forward merge")
+                .set_target(fetch_commit.id(), "Reset to remote state")
                 .map_err(|e| AppError::GitError(format!("Failed to update reference: {}", e)))?;
             git_repo
                 .set_head(branch_name)
@@ -756,49 +770,6 @@ impl GitService {
             git_repo
                 .checkout_head(Some(git2::build::CheckoutBuilder::default().force()))
                 .map_err(|e| AppError::GitError(format!("Failed to checkout: {}", e)))?;
-        } else {
-            // Need merge commit
-            let head_commit = git_repo
-                .head()
-                .and_then(|h| h.peel_to_commit())
-                .map_err(|e| AppError::GitError(format!("Failed to get HEAD commit: {}", e)))?;
-
-            let fetch_commit_obj = git_repo.find_object(fetch_commit.id(), None).map_err(|e| {
-                AppError::GitError(format!("Failed to find fetch commit object: {}", e))
-            })?;
-            let fetch_commit_commit = fetch_commit_obj
-                .peel_to_commit()
-                .map_err(|e| AppError::GitError(format!("Failed to get fetch commit: {}", e)))?;
-
-            let mut index = git_repo
-                .merge_commits(&head_commit, &fetch_commit_commit, None)
-                .map_err(|e| AppError::GitError(format!("Failed to merge: {}", e)))?;
-
-            if index.has_conflicts() {
-                return Err(AppError::GitError("Merge conflicts detected".to_string()));
-            }
-
-            let tree_id = index
-                .write_tree_to(git_repo)
-                .map_err(|e| AppError::GitError(format!("Failed to write tree: {}", e)))?;
-            let tree = git_repo
-                .find_tree(tree_id)
-                .map_err(|e| AppError::GitError(format!("Failed to find tree: {}", e)))?;
-
-            let signature = git_repo
-                .signature()
-                .map_err(|e| AppError::GitError(format!("Failed to get signature: {}", e)))?;
-
-            git_repo
-                .commit(
-                    Some("HEAD"),
-                    &signature,
-                    &signature,
-                    "Merge updates",
-                    &tree,
-                    &[&head_commit, &fetch_commit_commit],
-                )
-                .map_err(|e| AppError::GitError(format!("Failed to create merge commit: {}", e)))?;
         }
 
         Ok(())

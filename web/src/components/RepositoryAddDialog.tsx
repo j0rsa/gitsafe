@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import type { Credential } from '../types'
 import { Autocomplete } from './Autocomplete'
-import { repoNameFromUrl } from '../utils'
+import { repoNameFromUrl, isSshUrl } from '../utils'
 import { useNotifications } from '../contexts/NotificationContext'
 import './RepositoryEditDialog.css'
 
@@ -44,13 +44,11 @@ export const RepositoryAddDialog: React.FC<RepositoryAddDialogProps> = ({
   // Calculate repository ID from URL when URL changes
   useEffect(() => {
     if (url.trim()) {
-      try {
-        new URL(url) // Validate URL
-        const calculatedId = repoNameFromUrl(url)
+      // repoNameFromUrl handles both HTTP/HTTPS and SSH URLs
+      const calculatedId = repoNameFromUrl(url)
+      if (calculatedId) {
         setRepositoryId(calculatedId)
         setIdError(null)
-      } catch {
-        // Invalid URL, don't update ID
       }
     } else {
       setRepositoryId('')
@@ -91,12 +89,23 @@ export const RepositoryAddDialog: React.FC<RepositoryAddDialogProps> = ({
       return
     }
 
-    // Basic URL validation
-    try {
-      new URL(url)
-    } catch {
-      setError('Please enter a valid URL (e.g., https://github.com/user/repo.git)')
+    // Basic URL validation - check if it's a valid HTTP/HTTPS URL or SSH URL
+    const urlIsHttp = url.trim().startsWith('http://') || url.trim().startsWith('https://')
+    const urlIsSsh = isSshUrl(url.trim())
+    
+    if (!urlIsHttp && !urlIsSsh) {
+      setError('Please enter a valid URL (e.g., https://github.com/user/repo.git or git@github.com:user/repo.git)')
       return
+    }
+    
+    // Additional validation for HTTP/HTTPS URLs
+    if (urlIsHttp) {
+      try {
+        new URL(url)
+      } catch {
+        setError('Please enter a valid HTTP/HTTPS URL (e.g., https://github.com/user/repo.git)')
+        return
+      }
     }
 
     // Validate repository ID
@@ -112,6 +121,19 @@ export const RepositoryAddDialog: React.FC<RepositoryAddDialogProps> = ({
         setCredentialError('Please select a valid credential from the list')
         setError('Invalid credential ID. Please select a credential from the dropdown.')
         return
+      }
+
+      // Validate credential type matches URL type
+      // SSH URLs allow both SSH key and password credentials
+      // HTTP/HTTPS URLs only allow password credentials (not SSH keys)
+      const selectedCredential = credentials.find(c => c.id === credentialId.trim())
+      if (selectedCredential) {
+        const urlIsSsh = isSshUrl(url.trim())
+        if (!urlIsSsh && selectedCredential.is_ssh_key) {
+          setCredentialError('HTTP/HTTPS URLs require credentials with username/password')
+          setError('HTTP/HTTPS URLs require credentials with username/password. Please select a credential without SSH key.')
+          return
+        }
       }
     }
 

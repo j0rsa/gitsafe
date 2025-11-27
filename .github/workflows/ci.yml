@@ -399,7 +399,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: gitsafe-arm64
-          path: ha-addon/binary-aarch64
+          path: ha-addon/binary-arm64
       
       - name: Download web build artifact
         uses: actions/download-artifact@v4

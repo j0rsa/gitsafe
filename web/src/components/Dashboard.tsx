@@ -1,12 +1,14 @@
 import React, { useEffect, useState, useMemo } from 'react'
 import { apiClient } from '../api/client'
 import type { Repository, Credential, SearchFilters, Stats, TileLayout } from '../types'
+import { extractHost, extractOrg } from '../utils'
 import { Stats as StatsComponent } from './Stats'
 import { FilterPanel } from './FilterPanel'
 import { RepositoryTile } from './RepositoryTile'
 import { RepositoryEditDialog } from './RepositoryEditDialog'
 import { RepositoryAddDialog } from './RepositoryAddDialog'
 import { CredentialManagementDialog } from './CredentialManagementDialog'
+import { ThemeSelector } from './ThemeSelector'
 import { useNotifications } from '../contexts/NotificationContext'
 import './Dashboard.css'
 
@@ -31,42 +33,12 @@ const fuzzyMatch = (text: string, query: string): boolean => {
   return queryIndex === queryLower.length
 }
 
-// Extract base domain from URL (with protocol, e.g., "https://github.com")
-const extractBaseDomain = (url: string): string | null => {
-  try {
-    const urlObj = new URL(url)
-    return urlObj.origin // Returns protocol + hostname (e.g., "https://github.com")
-  } catch {
-    // If URL parsing fails, try to extract domain manually
-    const match = url.match(/^(https?:\/\/)([^\/]+)/)
-    if (match) {
-      return match[1] + match[2] // protocol + domain
-    }
-    return null
-  }
+
+export interface DashboardProps {
+  onLogout?: () => void
 }
 
-// Extract base domain with user/org (with protocol, e.g., "https://github.com/example")
-const extractBaseDomainWithUser = (url: string): string | null => {
-  try {
-    const urlObj = new URL(url)
-    const pathParts = urlObj.pathname.split('/').filter(Boolean)
-    if (pathParts.length >= 1) {
-      // Return origin + first path segment (user/org) with protocol
-      return `${urlObj.origin}/${pathParts[0]}`
-    }
-    return null
-  } catch {
-    // If URL parsing fails, try to extract manually
-    const match = url.match(/^(https?:\/\/[^\/]+)\/([^\/]+)/)
-    if (match) {
-      return `${match[1]}/${match[2]}` // protocol + hostname/user
-    }
-    return null
-  }
-}
-
-export const Dashboard: React.FC = () => {
+export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
   const [allRepositories, setAllRepositories] = useState<Repository[]>([])
   const [credentials, setCredentials] = useState<Credential[]>([])
   const [filters, setFilters] = useState<SearchFilters>({})
@@ -130,26 +102,32 @@ export const Dashboard: React.FC = () => {
     () => Array.from(new Set(allRepositories.map((r) => r.id))),
     [allRepositories]
   )
-  const urlSuggestions = useMemo(() => {
-    const baseDomains = new Set<string>()
-    const baseDomainsWithUser = new Set<string>()
-    
-    // Extract base domains and base domains with users/orgs
+  
+  const hostSuggestions = useMemo(() => {
+    const hosts = new Set<string>()
     allRepositories.forEach((r) => {
-      const baseDomain = extractBaseDomain(r.url)
-      if (baseDomain) {
-        baseDomains.add(baseDomain)
-      }
-      
-      const baseDomainWithUser = extractBaseDomainWithUser(r.url)
-      if (baseDomainWithUser) {
-        baseDomainsWithUser.add(baseDomainWithUser)
+      const host = extractHost(r.url)
+      if (host) {
+        hosts.add(host)
       }
     })
-    
-    // Return base domains first, then base domains with users/orgs
-    // Do NOT include full repository URLs
-    return [...Array.from(baseDomains), ...Array.from(baseDomainsWithUser)]
+    return Array.from(hosts).sort()
+  }, [allRepositories])
+  
+  const orgSuggestions = useMemo(() => {
+    const orgs = new Set<string>()
+    allRepositories.forEach((r) => {
+      const org = extractOrg(r.url)
+      if (org) {
+        orgs.add(org)
+      }
+    })
+    return Array.from(orgs).sort()
+  }, [allRepositories])
+  
+  // URL suggestions for RepositoryAddDialog (for autocomplete when adding new repos)
+  const urlSuggestions = useMemo(() => {
+    return allRepositories.map((r) => r.url)
   }, [allRepositories])
 
   // Client-side filtering
@@ -160,13 +138,16 @@ export const Dashboard: React.FC = () => {
         if (!fuzzyMatch(repo.id, filters.name)) return false
       }
 
-      // Filter by URL with fuzzy matching (check both full URL and base domain)
-      if (filters.url) {
-        const urlMatch = fuzzyMatch(repo.url, filters.url)
-        const baseDomain = extractBaseDomain(repo.url)
-        const domainMatch = baseDomain ? fuzzyMatch(baseDomain, filters.url) : false
-        
-        if (!urlMatch && !domainMatch) return false
+      // Filter by host with fuzzy matching
+      if (filters.host) {
+        const repoHost = extractHost(repo.url)
+        if (!repoHost || !fuzzyMatch(repoHost, filters.host)) return false
+      }
+
+      // Filter by org/user with fuzzy matching
+      if (filters.org) {
+        const repoOrg = extractOrg(repo.url)
+        if (!repoOrg || !fuzzyMatch(repoOrg, filters.org)) return false
       }
 
       // Filter by error state
@@ -313,12 +294,28 @@ export const Dashboard: React.FC = () => {
 
   return (
     <div className="dashboard">
+      <div className="dashboard-header">
+        <h1>GitSafe</h1>
+        <div className="dashboard-header-actions">
+          <ThemeSelector />
+          {onLogout && (
+            <button className="logout-btn" onClick={onLogout} aria-label="Logout" title="Logout">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M6 14H3C2.44772 14 2 13.5523 2 13V3C2 2.44772 2.44772 2 3 2H6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M10 11L14 8L10 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M14 8H6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </button>
+          )}
+        </div>
+      </div>
       <div className="dashboard-content">
         <StatsComponent {...stats} />
         <FilterPanel
           onFilterChange={setFilters}
           nameSuggestions={nameSuggestions}
-          urlSuggestions={urlSuggestions}
+          hostSuggestions={hostSuggestions}
+          orgSuggestions={orgSuggestions}
           inactiveCount={allRepositories.filter((r) => !r.enabled).length}
           erroredCount={allRepositories.filter((r) => r.error != null && r.error.trim() !== '').length}
         />

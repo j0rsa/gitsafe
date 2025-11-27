@@ -8,6 +8,11 @@ A Rust application designed to fetch Git repositories on a schedule and keep eac
 
 Keep your Git repositories safe and backed up with ease!
 
+![Main UI](doc/main-ui.png)
+
+You can also install it as an add-on for Home Assistant:
+[![Open your Home Assistant instance and show the add add-on repository dialog with a specific repository URL pre-filled.](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fj0rsa%2Fgitsafe)
+
 ## Features
 
 - **Scheduled Git Repository Syncing**: Automatically fetch and archive Git repositories based on a cron schedule

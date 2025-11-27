@@ -384,10 +384,8 @@ jobs:
     strategy:
       matrix:
         include:
-          - target: amd64
-            platforms: --amd64
-          - target: aarch64
-            platforms: --aarch64
+          - platform: --amd64
+          - platform: --aarch64
     steps:
       - uses: actions/checkout@v4
       
@@ -418,8 +416,8 @@ jobs:
         uses: home-assistant/builder@2024.03.5
         with:
           args: |
-            ${{ matrix.platforms }} \
-            --target ${{ matrix.target }} \
+            ${{ matrix.platform }} \
+            --target ha-addon \
             --docker-hub ghcr.io/${{ github.repository_owner }} \
             --addon \
             --cosign

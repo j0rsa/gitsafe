@@ -68,6 +68,24 @@ export const Autocomplete: React.FC<AutocompleteProps> = ({
 
   const showDropdown = isOpen && filteredSuggestions.length > 0
 
+  // Recalculate position when value changes (user typing)
+  useEffect(() => {
+    if (isOpen && inputRef.current) {
+      // Recalculate position when value changes to account for keyboard appearing
+      updateDropdownPosition()
+      // Use multiple delays to catch keyboard animation timing
+      const timer1 = setTimeout(() => updateDropdownPosition(), 50)
+      const timer2 = setTimeout(() => updateDropdownPosition(), 150)
+      const timer3 = setTimeout(() => updateDropdownPosition(), 300)
+      
+      return () => {
+        clearTimeout(timer1)
+        clearTimeout(timer2)
+        clearTimeout(timer3)
+      }
+    }
+  }, [value, isOpen])
+
   // Recalculate position right before showing dropdown
   useEffect(() => {
     if (showDropdown) {
@@ -95,9 +113,9 @@ export const Autocomplete: React.FC<AutocompleteProps> = ({
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value
     onChange(newValue)
-    updateDropdownPosition()
     setIsOpen(true)
     setHighlightedIndex(-1)
+    // Position will be updated by the useEffect watching value changes
   }
 
   // Update dropdown position based on input position
@@ -107,11 +125,21 @@ export const Autocomplete: React.FC<AutocompleteProps> = ({
       void inputRef.current.offsetHeight
       
       const rect = inputRef.current.getBoundingClientRect()
-      // getBoundingClientRect() gives viewport coordinates, which is correct for position: fixed
-      // Add a small margin for spacing
+      
+      // Account for visual viewport (mobile keyboard) offset
+      let topOffset = 0
+      let leftOffset = 0
+      
+      if (window.visualViewport) {
+        topOffset = window.visualViewport.offsetTop
+        leftOffset = window.visualViewport.offsetLeft
+      }
+      
+      // getBoundingClientRect() gives coordinates relative to the visual viewport
+      // We need to add the visual viewport offset to get correct fixed positioning
       setDropdownPosition({
-        top: rect.bottom + 4,
-        left: rect.left,
+        top: rect.bottom + topOffset + 4,
+        left: rect.left + leftOffset,
         width: rect.width,
       })
     }
@@ -127,6 +155,11 @@ export const Autocomplete: React.FC<AutocompleteProps> = ({
     } else if (value.length > 0 && filteredSuggestions.length > 0) {
       setIsOpen(true)
     }
+    
+    // Recalculate position after focus to account for mobile keyboard appearing
+    setTimeout(() => updateDropdownPosition(), 0)
+    setTimeout(() => updateDropdownPosition(), 100)
+    setTimeout(() => updateDropdownPosition(), 300)
   }
 
   // Handle suggestion click
@@ -196,13 +229,17 @@ export const Autocomplete: React.FC<AutocompleteProps> = ({
   }
 
 
-  // Update position when window scrolls or resizes
+  // Update position when window scrolls, resizes, or visual viewport changes (mobile keyboard)
   useEffect(() => {
     if (isOpen) {
       const handleScroll = () => {
         updateDropdownPosition()
       }
       const handleResize = () => {
+        updateDropdownPosition()
+      }
+      const handleVisualViewportChange = () => {
+        // This fires when mobile keyboard appears/disappears
         updateDropdownPosition()
       }
 
@@ -213,10 +250,20 @@ export const Autocomplete: React.FC<AutocompleteProps> = ({
       // Also listen to scroll on document
       document.addEventListener('scroll', handleScroll, true)
       
+      // Listen to visual viewport changes (mobile keyboard appears/disappears)
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', handleVisualViewportChange)
+        window.visualViewport.addEventListener('scroll', handleVisualViewportChange)
+      }
+      
       return () => {
         window.removeEventListener('scroll', handleScroll, true)
         window.removeEventListener('resize', handleResize)
         document.removeEventListener('scroll', handleScroll, true)
+        if (window.visualViewport) {
+          window.visualViewport.removeEventListener('resize', handleVisualViewportChange)
+          window.visualViewport.removeEventListener('scroll', handleVisualViewportChange)
+        }
       }
     }
   }, [isOpen])

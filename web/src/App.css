@@ -4,7 +4,7 @@
   justify-content: center;
   min-height: 100vh;
   font-size: 1.25rem;
-  color: #6b7280;
+  color: var(--text-tertiary);
 }
 
 .login-container {
@@ -15,11 +15,15 @@
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 }
 
+:root.dark .login-container {
+  background: linear-gradient(135deg, #4c1d95 0%, #581c87 100%);
+}
+
 .login-card {
-  background: white;
+  background: var(--bg-primary);
   border-radius: 12px;
   padding: 2rem;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--shadow-lg);
   width: 100%;
   max-width: 400px;
 }
@@ -36,7 +40,7 @@
   margin: 0;
   font-size: 1.75rem;
   font-weight: 700;
-  color: #111827;
+  color: var(--text-primary);
 }
 
 .login-logo {
@@ -54,27 +58,29 @@
   margin-bottom: 0.5rem;
   font-size: 0.875rem;
   font-weight: 500;
-  color: #374151;
+  color: var(--text-secondary);
 }
 
 .form-group input {
   width: 100%;
   padding: 0.75rem;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--border-light);
   border-radius: 6px;
   font-size: 1rem;
+  background: var(--bg-primary);
+  color: var(--text-primary);
   transition: border-color 0.2s;
 }
 
 .form-group input:focus {
   outline: none;
-  border-color: #6366f1;
+  border-color: var(--primary-color);
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
 .error-message {
-  background: #fef2f2;
-  color: #991b1b;
+  background: var(--error-bg);
+  color: var(--error-text);
   padding: 0.75rem;
   border-radius: 6px;
   margin-bottom: 1rem;
@@ -84,7 +90,7 @@
 .login-btn {
   width: 100%;
   padding: 0.75rem;
-  background: #6366f1;
+  background: var(--primary-color);
   color: white;
   border: none;
   border-radius: 6px;
@@ -95,7 +101,7 @@
 }
 
 .login-btn:hover {
-  background: #4f46e5;
+  background: var(--primary-hover);
 }
 
 .login-btn:active {

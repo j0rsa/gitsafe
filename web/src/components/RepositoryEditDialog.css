@@ -15,9 +15,9 @@
 }
 
 .dialog-content {
-  background: white;
+  background: var(--bg-primary);
   border-radius: 8px;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--shadow-lg);
   width: 100%;
   max-width: 500px;
   max-height: 90vh;
@@ -32,13 +32,13 @@
   justify-content: space-between;
   align-items: center;
   padding: 1.5rem;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .dialog-header h2 {
   font-size: 1.25rem;
   font-weight: 600;
-  color: #111827;
+  color: var(--text-primary);
   margin: 0;
 }
 
@@ -46,7 +46,7 @@
   background: none;
   border: none;
   font-size: 1.5rem;
-  color: #6b7280;
+  color: var(--text-tertiary);
   cursor: pointer;
   padding: 0;
   width: 2rem;
@@ -59,8 +59,8 @@
 }
 
 .dialog-close:hover {
-  background: #f3f4f6;
-  color: #111827;
+  background: var(--bg-hover);
+  color: var(--text-primary);
 }
 
 .dialog-body {
@@ -84,17 +84,17 @@
 .dialog-field-error {
   margin-top: 0.5rem;
   padding: 0.5rem 0.75rem;
-  background: #fee2e2;
-  border-left: 3px solid #ef4444;
+  background: var(--error-bg);
+  border-left: 3px solid var(--error-color);
   border-radius: 4px;
-  color: #991b1b;
+  color: var(--error-text);
   font-size: 0.75rem;
 }
 
 .dialog-field-hint {
   margin-top: 0.5rem;
   font-size: 0.75rem;
-  color: #6b7280;
+  color: var(--text-tertiary);
   font-style: italic;
 }
 
@@ -102,9 +102,11 @@
 .dialog-field input[type="url"] {
   width: 100%;
   padding: 0.75rem;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--border-light);
   border-radius: 6px;
   font-size: 0.875rem;
+  background: var(--bg-primary);
+  color: var(--text-primary);
   box-sizing: border-box;
   transition: border-color 0.2s;
 }
@@ -112,17 +114,17 @@
 .dialog-field input[type="text"]:focus,
 .dialog-field input[type="url"]:focus {
   outline: none;
-  border-color: #6366f1;
+  border-color: var(--primary-color);
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
 .dialog-field input.input-error {
-  border-color: #ef4444;
-  background-color: #fef2f2;
+  border-color: var(--error-color);
+  background-color: var(--error-bg);
 }
 
 .dialog-field input.input-error:focus {
-  border-color: #ef4444;
+  border-color: var(--error-color);
   box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
 }
 
@@ -130,18 +132,18 @@
   display: block;
   font-size: 0.875rem;
   font-weight: 500;
-  color: #374151;
+  color: var(--text-secondary);
   margin-bottom: 0.5rem;
 }
 
 .dialog-input-disabled {
   width: 100%;
   padding: 0.75rem;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--border-light);
   border-radius: 6px;
   font-size: 0.875rem;
-  background: #f9fafb;
-  color: #6b7280;
+  background: var(--bg-tertiary);
+  color: var(--text-tertiary);
   cursor: not-allowed;
   box-sizing: border-box;
   overflow: hidden;
@@ -257,7 +259,7 @@
   justify-content: flex-end;
   gap: 0.75rem;
   padding: 1.5rem;
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid var(--border-color);
 }
 
 .dialog-btn {
@@ -276,20 +278,20 @@
 }
 
 .dialog-btn-secondary {
-  background: #f3f4f6;
-  color: #374151;
+  background: var(--bg-hover);
+  color: var(--text-secondary);
 }
 
 .dialog-btn-secondary:hover:not(:disabled) {
-  background: #e5e7eb;
+  background: var(--border-color);
 }
 
 .dialog-btn-primary {
-  background: #6366f1;
+  background: var(--primary-color);
   color: white;
 }
 
 .dialog-btn-primary:hover:not(:disabled) {
-  background: #4f46e5;
+  background: var(--primary-hover);
 }
 

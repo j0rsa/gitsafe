@@ -6,7 +6,8 @@ import './FilterPanel.css'
 export interface FilterPanelProps {
   onFilterChange: (filters: SearchFilters) => void
   nameSuggestions?: string[]
-  urlSuggestions?: string[]
+  hostSuggestions?: string[]
+  orgSuggestions?: string[]
   inactiveCount?: number
   erroredCount?: number
 }
@@ -14,12 +15,14 @@ export interface FilterPanelProps {
 export const FilterPanel: React.FC<FilterPanelProps> = ({
   onFilterChange,
   nameSuggestions = [],
-  urlSuggestions = [],
+  hostSuggestions = [],
+  orgSuggestions = [],
   inactiveCount = 0,
   erroredCount = 0,
 }) => {
   const [nameFilter, setNameFilter] = useState('')
-  const [urlFilter, setUrlFilter] = useState('')
+  const [hostFilter, setHostFilter] = useState('')
+  const [orgFilter, setOrgFilter] = useState('')
   const [errorFilter, setErrorFilter] = useState<boolean | undefined>(undefined)
   const [enabledFilter, setEnabledFilter] = useState<boolean | undefined>(undefined)
 
@@ -28,7 +31,8 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
     setErrorFilter(value)
     onFilterChange({
       name: nameFilter || undefined,
-      url: urlFilter || undefined,
+      host: hostFilter || undefined,
+      org: orgFilter || undefined,
       has_error: value,
       enabled: enabledFilter,
     })
@@ -38,7 +42,8 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
     setEnabledFilter(value)
     onFilterChange({
       name: nameFilter || undefined,
-      url: urlFilter || undefined,
+      host: hostFilter || undefined,
+      org: orgFilter || undefined,
       has_error: errorFilter,
       enabled: value,
     })
@@ -46,13 +51,14 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
 
   const clearFilters = () => {
     setNameFilter('')
-    setUrlFilter('')
+    setHostFilter('')
+    setOrgFilter('')
     setErrorFilter(undefined)
     setEnabledFilter(undefined)
     onFilterChange({})
   }
 
-  const hasActiveFilters = nameFilter || urlFilter || errorFilter !== undefined || enabledFilter !== undefined
+  const hasActiveFilters = nameFilter || hostFilter || orgFilter || errorFilter !== undefined || enabledFilter !== undefined
 
   return (
     <div className="filter-panel">
@@ -75,7 +81,8 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
               setNameFilter(value)
               onFilterChange({
                 name: value || undefined,
-                url: urlFilter || undefined,
+                host: hostFilter || undefined,
+                org: orgFilter || undefined,
                 has_error: errorFilter,
                 enabled: enabledFilter,
               })
@@ -86,21 +93,44 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
         </div>
         <div className="filter-group">
           <Autocomplete
-            id="url-filter"
-            label="URL"
-            placeholder="Filter by URL (partial match)..."
-            value={urlFilter}
+            id="host-filter"
+            label="Host"
+            placeholder="Filter by hostname (e.g., github.com)..."
+            value={hostFilter}
             onChange={(value) => {
-              setUrlFilter(value)
+              setHostFilter(value)
               onFilterChange({
                 name: nameFilter || undefined,
-                url: value || undefined,
+                host: value || undefined,
+                org: orgFilter || undefined,
                 has_error: errorFilter,
                 enabled: enabledFilter,
               })
             }}
-            suggestions={urlSuggestions}
+            suggestions={hostSuggestions}
             maxSuggestions={10}
+            openOnEmptyFocus={true}
+          />
+        </div>
+        <div className="filter-group">
+          <Autocomplete
+            id="org-filter"
+            label="Organization/User"
+            placeholder="Filter by organization or user..."
+            value={orgFilter}
+            onChange={(value) => {
+              setOrgFilter(value)
+              onFilterChange({
+                name: nameFilter || undefined,
+                host: hostFilter || undefined,
+                org: value || undefined,
+                has_error: errorFilter,
+                enabled: enabledFilter,
+              })
+            }}
+            suggestions={orgSuggestions}
+            maxSuggestions={10}
+            openOnEmptyFocus={true}
           />
         </div>
         {erroredCount > 0 && (

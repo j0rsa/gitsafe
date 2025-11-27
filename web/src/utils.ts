@@ -223,3 +223,115 @@ export function isSshUrl(url: string): boolean {
   return colonIndex < slashIndex
 }
 
+/**
+ * Extracts the hostname from a Git URL.
+ * Supports both HTTP/HTTPS URLs and SSH URLs.
+ * 
+ * @param url - The Git repository URL
+ * @returns The hostname (e.g., "github.com", "gitlab.com") or null if not found
+ * 
+ * @example
+ * extractHost("https://github.com/user/repo.git")
+ * // Returns: "github.com"
+ * 
+ * @example
+ * extractHost("git@github.com:user/repo.git")
+ * // Returns: "github.com"
+ */
+export function extractHost(url: string): string | null {
+  // Check for SSH URL format: git@host:path
+  const atIndex = url.indexOf('@')
+  if (atIndex !== -1) {
+    const afterAt = url.substring(atIndex + 1)
+    const colonIndex = afterAt.indexOf(':')
+    if (colonIndex !== -1) {
+      return afterAt.substring(0, colonIndex)
+    }
+  }
+
+  // Parse HTTP/HTTPS URL
+  try {
+    const parsedUrl = new URL(url)
+    return parsedUrl.hostname
+  } catch {
+    // Fallback: try to extract manually
+    const protocolMatch = url.match(/^https?:\/\//)
+    if (protocolMatch) {
+      const afterProtocol = url.substring(protocolMatch[0].length)
+      const pathStart = afterProtocol.indexOf('/')
+      if (pathStart !== -1) {
+        return afterProtocol.substring(0, pathStart)
+      }
+      return afterProtocol
+    }
+  }
+
+  return null
+}
+
+/**
+ * Extracts the organization/user from a Git URL.
+ * This is typically the first path segment after the hostname.
+ * Supports both HTTP/HTTPS URLs and SSH URLs.
+ * 
+ * @param url - The Git repository URL
+ * @returns The organization/user (e.g., "github", "microsoft") or null if not found
+ * 
+ * @example
+ * extractOrg("https://github.com/microsoft/vscode.git")
+ * // Returns: "microsoft"
+ * 
+ * @example
+ * extractOrg("git@github.com:user/repo.git")
+ * // Returns: "user"
+ */
+export function extractOrg(url: string): string | null {
+  // Check for SSH URL format: git@host:path
+  const atIndex = url.indexOf('@')
+  if (atIndex !== -1) {
+    const afterAt = url.substring(atIndex + 1)
+    const colonIndex = afterAt.indexOf(':')
+    if (colonIndex !== -1) {
+      const path = afterAt.substring(colonIndex + 1)
+      const pathSegments = path.split('/').filter(segment => segment.length > 0)
+      if (pathSegments.length > 0) {
+        // Remove .git suffix if present
+        const org = pathSegments[0]
+        return org.endsWith('.git') ? org.slice(0, -4) : org
+      }
+    }
+    return null
+  }
+
+  // Parse HTTP/HTTPS URL
+  try {
+    const parsedUrl = new URL(url)
+    const pathSegments = parsedUrl.pathname
+      .split('/')
+      .filter(segment => segment.length > 0)
+    
+    if (pathSegments.length > 0) {
+      // Remove .git suffix if present
+      const org = pathSegments[0]
+      return org.endsWith('.git') ? org.slice(0, -4) : org
+    }
+  } catch {
+    // Fallback: try to extract manually
+    const protocolMatch = url.match(/^https?:\/\//)
+    if (protocolMatch) {
+      const afterProtocol = url.substring(protocolMatch[0].length)
+      const pathStart = afterProtocol.indexOf('/')
+      if (pathStart !== -1) {
+        const path = afterProtocol.substring(pathStart + 1)
+        const pathSegments = path.split('/').filter(segment => segment.length > 0)
+        if (pathSegments.length > 0) {
+          const org = pathSegments[0]
+          return org.endsWith('.git') ? org.slice(0, -4) : org
+        }
+      }
+    }
+  }
+
+  return null
+}
+

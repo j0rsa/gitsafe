@@ -7,7 +7,7 @@
 .autocomplete-wrapper label {
   font-size: 0.875rem;
   font-weight: 500;
-  color: #374151;
+  color: var(--text-secondary);
 }
 
 .autocomplete-container {
@@ -21,7 +21,7 @@
   top: 50%;
   transform: translateY(-50%);
   pointer-events: none;
-  color: #6b7280;
+  color: var(--text-tertiary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -33,37 +33,39 @@
 }
 
 .autocomplete-input:focus ~ .autocomplete-icon {
-  color: #6366f1;
+  color: var(--primary-color);
 }
 
 .autocomplete-input:disabled ~ .autocomplete-icon {
-  color: #9ca3af;
+  color: var(--text-tertiary);
   opacity: 0.5;
 }
 
 .autocomplete-input {
   width: 100%;
   padding: 0.75rem 2.5rem 0.75rem 0.75rem;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--border-light);
   border-radius: 6px;
   font-size: 0.875rem;
+  background: var(--bg-primary);
+  color: var(--text-primary);
   transition: border-color 0.2s;
   box-sizing: border-box;
 }
 
 .autocomplete-input:focus {
   outline: none;
-  border-color: #6366f1;
+  border-color: var(--primary-color);
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
 .autocomplete-dropdown {
   position: fixed;
   margin-top: 0.25rem;
-  background: white;
-  border: 1px solid #d1d5db;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-light);
   border-radius: 6px;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  box-shadow: var(--shadow-md);
   max-height: 200px;
   overflow-y: auto;
   z-index: 10001;
@@ -72,14 +74,14 @@
 .autocomplete-suggestion {
   padding: 0.75rem;
   font-size: 0.875rem;
-  color: #111827;
+  color: var(--text-primary);
   cursor: pointer;
   transition: background-color 0.15s;
 }
 
 .autocomplete-suggestion:hover,
 .autocomplete-suggestion.highlighted {
-  background-color: #f3f4f6;
+  background-color: var(--bg-hover);
 }
 
 .autocomplete-suggestion:first-child {
@@ -98,16 +100,16 @@
 }
 
 .autocomplete-dropdown::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: var(--bg-secondary);
   border-radius: 6px;
 }
 
 .autocomplete-dropdown::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: var(--border-color);
   border-radius: 6px;
 }
 
 .autocomplete-dropdown::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: var(--text-tertiary);
 }
 

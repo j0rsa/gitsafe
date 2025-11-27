@@ -1,6 +1,6 @@
 import type { Repository, Credential, LoginRequest, LoginResponse, SearchFilters } from '../types'
 
-const API_BASE = '/api'
+const API_BASE = 'api'
 
 class ApiClient {
   private token: string | null = null
@@ -102,7 +102,8 @@ class ApiClient {
   async getRepositories(filters?: SearchFilters): Promise<Repository[]> {
     const params = new URLSearchParams()
     if (filters?.name) params.append('name', filters.name)
-    if (filters?.url) params.append('url', filters.url)
+    if (filters?.host) params.append('host', filters.host)
+    if (filters?.org) params.append('org', filters.org)
     if (filters?.has_error !== undefined) {
       params.append('has_error', filters.has_error.toString())
     }

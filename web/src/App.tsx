@@ -38,7 +38,7 @@ const App: React.FC = () => {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
-      await apiClient.login({ username, password })
+      await apiClient.login({ username: username.toLowerCase().trim(), password })
       setIsAuthenticated(true)
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Login failed'
@@ -95,9 +95,14 @@ const App: React.FC = () => {
     )
   }
 
+  const handleLogout = () => {
+    apiClient.clearToken()
+    setIsAuthenticated(false)
+  }
+
   return (
     <div className="app">
-      <Dashboard />
+      <Dashboard onLogout={handleLogout} />
       <NotificationContainer notifications={notifications} onDismiss={dismissNotification} />
     </div>
   )

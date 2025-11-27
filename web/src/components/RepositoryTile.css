@@ -1,10 +1,10 @@
 .repository-tile {
-  background: white;
+  background: var(--bg-primary);
   border-radius: 8px;
   padding: 1.5rem;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-sm);
   transition: box-shadow 0.2s, transform 0.2s;
-  border-left: 4px solid #6366f1;
+  border-left: 4px solid var(--primary-color);
   display: flex;
   flex-direction: column;
   height: auto;
@@ -25,13 +25,13 @@
 }
 
 .repository-tile:hover {
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-md);
   transform: translateY(-2px);
 }
 
 .repository-tile.disabled {
   opacity: 0.7;
-  border-left-color: #9ca3af;
+  border-left-color: var(--text-tertiary);
 }
 
 .repository-tile-header {
@@ -71,14 +71,14 @@
 .repository-id {
   font-size: 1rem;
   font-weight: 600;
-  color: #111827;
+  color: var(--text-primary);
   margin: 0 0 0.5rem 0;
   word-break: break-word;
 }
 
 .repository-url {
   font-size: 0.875rem;
-  color: #6366f1;
+  color: var(--primary-color);
   text-decoration: none;
   word-break: break-all;
   display: block;
@@ -122,8 +122,8 @@
   left: 50%;
   transform: translateX(-50%);
   padding: 0.5rem 0.75rem;
-  background: #1f2937;
-  color: white;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
   font-size: 0.75rem;
   border-radius: 4px;
   z-index: 10000;
@@ -131,7 +131,7 @@
   min-width: 200px;
   white-space: normal;
   word-break: break-word;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-md);
   pointer-events: none;
   opacity: 1;
   animation: tooltipFadeIn 0.2s ease-in;
@@ -145,7 +145,7 @@
   left: 50%;
   transform: translateX(-50%);
   border: 4px solid transparent;
-  border-top-color: #1f2937;
+  border-top-color: var(--bg-tertiary);
   z-index: 10001;
   pointer-events: none;
   animation: tooltipFadeIn 0.2s ease-in;
@@ -161,13 +161,13 @@
 }
 
 .status-badge.active {
-  background: #d1fae5;
-  color: #065f46;
+  background: rgba(16, 185, 129, 0.2);
+  color: var(--success-color);
 }
 
 .status-badge.inactive {
-  background: #fee2e2;
-  color: #991b1b;
+  background: rgba(239, 68, 68, 0.2);
+  color: var(--error-color);
 }
 
 .repository-tile-body {
@@ -199,18 +199,18 @@
 }
 
 .meta-label {
-  color: #6b7280;
+  color: var(--text-tertiary);
   font-weight: 500;
 }
 
 .meta-value {
-  color: #111827;
+  color: var(--text-primary);
 }
 
 .size-badge {
   display: inline-block;
   padding: 0.125rem 0.5rem;
-  background: #f3f4f6;
+  background: var(--bg-hover);
   border-radius: 4px;
   font-weight: 500;
   font-size: 0.8125rem;
@@ -221,7 +221,7 @@
   display: flex;
   gap: 0.75rem;
   padding-top: 1rem;
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid var(--border-color);
   flex-shrink: 0;
   margin-top: auto;
 }
@@ -305,16 +305,16 @@
 }
 
 .sync-btn {
-  background: #6366f1;
+  background: var(--primary-color);
   color: white;
 }
 
 .sync-btn:hover {
-  background: #4f46e5;
+  background: var(--primary-hover);
 }
 
 .delete-btn {
-  background: #ef4444;
+  background: var(--error-color);
   color: white;
 }
 
@@ -323,12 +323,12 @@
 }
 
 .edit-btn {
-  background: #6b7280;
+  background: var(--text-tertiary);
   color: white;
 }
 
 .edit-btn:hover {
-  background: #4b5563;
+  background: var(--text-secondary);
 }
 
 .edit-icon {

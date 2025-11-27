@@ -31,7 +31,8 @@ export interface LoginResponse {
 
 export interface SearchFilters {
   name?: string
-  url?: string
+  host?: string
+  org?: string
   has_error?: boolean
   enabled?: boolean
 }

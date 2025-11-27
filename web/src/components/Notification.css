@@ -12,9 +12,9 @@
 
 .notification {
   pointer-events: auto;
-  background: white;
+  background: var(--bg-primary);
   border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-md);
   padding: 0;
   animation: slideIn 0.3s ease-out;
   cursor: pointer;
@@ -23,7 +23,7 @@
 
 .notification:hover {
   transform: translateX(-4px);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--shadow-lg);
 }
 
 .notification-content {
@@ -63,7 +63,7 @@
 
 .notification-message {
   flex: 1;
-  color: #333;
+  color: var(--text-primary);
   font-size: 14px;
   line-height: 1.5;
   word-wrap: break-word;
@@ -74,7 +74,7 @@
   background: none;
   border: none;
   font-size: 24px;
-  color: #999;
+  color: var(--text-tertiary);
   cursor: pointer;
   padding: 0;
   width: 24px;
@@ -87,7 +87,7 @@
 }
 
 .notification-close:hover {
-  color: #333;
+  color: var(--text-primary);
 }
 
 .notification-info {

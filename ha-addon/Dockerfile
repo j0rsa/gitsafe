@@ -20,7 +20,7 @@ WORKDIR /app
 COPY binary-${TARGETARCH}/gitsafe /app/gitsafe
 
 # Copy static web frontend files
-COPY api/static /app/static
+COPY static /app/static
 
 # Copy run script. The Docker image will be built from the ha-addon directory.
 COPY run.sh /app/run.sh

@@ -393,24 +393,24 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: gitsafe-amd64
-          path: ./binary-amd64
+          path: /ha-addon/binary-amd64
       
       - name: Download arm64 binary artifact
         uses: actions/download-artifact@v4
         with:
           name: gitsafe-arm64
-          path: ./binary-aarch64
+          path: /ha-addon/binary-aarch64
       
       - name: Download web build artifact
         uses: actions/download-artifact@v4
         with:
           name: web-static
-          path: ./api/static
+          path: /ha-addon/web-static
       
       - name: Make binaries executable
         run: |
-          chmod +x ./binary-amd64/gitsafe
-          chmod +x ./binary-aarch64/gitsafe
+          chmod +x /ha-addon/binary-amd64/gitsafe
+          chmod +x /ha-addon/binary-aarch64/gitsafe
       
       - name: Build and push Home Assistant addon Docker image
         uses: home-assistant/builder@2024.03.5

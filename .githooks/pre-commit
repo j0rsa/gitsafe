@@ -2,25 +2,81 @@
 #
 # Pre-commit hook for GitSafe
 # Runs cargo checks and web lint before allowing commits
+# Only runs checks for directories that have changes
 #
 
 set -e
 
-# Change to api directory where Cargo.toml is located
-cd api
+# Get list of staged files
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM)
 
-echo '+cargo test --all'
-cargo test --all
-echo '+cargo check --all'
-cargo check --all
-echo '+cargo clippy --all -- -D warnings'
-cargo clippy --all -- -D warnings
-echo '+cargo fmt --all -- --check'
-cargo fmt --all -- --check
+# Check if there are any changes in the api directory
+HAS_API_CHANGES=false
+for file in $STAGED_FILES; do
+  case "$file" in
+    api/*)
+      HAS_API_CHANGES=true
+      break
+      ;;
+  esac
+done
 
-# Change to web directory for linting
-cd ../web
+# Check if there are any changes in the web directory
+HAS_WEB_CHANGES=false
+for file in $STAGED_FILES; do
+  case "$file" in
+    web/*)
+      HAS_WEB_CHANGES=true
+      break
+      ;;
+  esac
+done
 
-echo '+bun run lint'
-bun run lint
+# Run cargo checks only if there are changes in api directory
+if [ "$HAS_API_CHANGES" = true ]; then
+  echo "=========================================="
+  echo "  Running Rust checks (api/)"
+  echo "=========================================="
+  
+  # Change to api directory where Cargo.toml is located
+  cd api
+  
+  echo '+cargo test --all'
+  cargo test --all
+  echo '+cargo check --all'
+  cargo check --all
+  echo '+cargo clippy --all -- -D warnings'
+  cargo clippy --all -- -D warnings
+  echo '+cargo fmt --all -- --check'
+  cargo fmt --all -- --check
+  
+  # Return to root directory
+  cd ..
+else
+  echo "Skipping Rust checks (no changes in api/)"
+fi
+
+# Run web lint and tests only if there are changes in web directory
+if [ "$HAS_WEB_CHANGES" = true ]; then
+  echo "=========================================="
+  echo "  Running Web checks (web/)"
+  echo "=========================================="
+  
+  # Change to web directory for linting and tests
+  cd web
+  
+  echo '+bun run lint'
+  bun run lint
+  echo '+bun run test:run'
+  bun run test:run
+  
+  # Return to root directory
+  cd ..
+else
+  echo "Skipping Web checks (no changes in web/)"
+fi
+
+echo "=========================================="
+echo "  Pre-commit checks completed"
+echo "=========================================="
 

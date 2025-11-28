@@ -381,11 +381,6 @@ jobs:
     name: Build Home Assistant Addon Docker Image
     runs-on: ubuntu-latest
     needs: [build-binary, build-web]
-    strategy:
-      matrix:
-        include:
-          - platform: --amd64
-          - platform: --aarch64
     steps:
       - uses: actions/checkout@v4
       
@@ -419,16 +414,20 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      
+
+      - name: Print Folder Tree
+        uses: jaywcjlove/github-action-folder-tree@main
+        id: tree
+        with:
+          path: .
+          depth: 4
+
       - name: Build and push Home Assistant addon Docker image
         uses: home-assistant/builder@2024.03.5
         with:
           args: |
-            ${{ matrix.platform }} \
+            --amd64 --aarch64 \
             --target gitsafe \
             --docker-hub ghcr.io/${{ github.repository_owner }} \
             --addon \
             --cosign
-        env:
-          DOCKER_HUB_USERNAME: ${{ github.actor }}
-          DOCKER_HUB_PASSWORD: ${{ secrets.GITHUB_TOKEN }}

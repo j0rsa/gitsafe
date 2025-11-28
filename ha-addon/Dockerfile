@@ -1,8 +1,8 @@
 # Home Assistant Addon Dockerfile for GitSafe
 # Uses pre-built artifacts from CI workflow
 # TARGETARCH matches binary directory names: amd64, aarch64
+ARG BUILD_FROM=ghcr.io/home-assistant/amd64-base-ubuntu:20.04
 
-ARG BUILD_FROM
 FROM ${BUILD_FROM}
 
 ARG TARGETARCH

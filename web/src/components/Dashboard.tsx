@@ -184,10 +184,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
   const handleSync = async (id: string) => {
     try {
       setSyncingRepos((prev) => new Set(prev).add(id))
-      await apiClient.syncRepository(id)
+      const result = await apiClient.syncRepository(id)
       // Reload data to get updated repository state
       await loadInitialData()
-      showInfo('Repository synced successfully')
+      
+      // Display sync status message
+      showInfo(result.message)
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to sync repository'
       showError(errorMessage)
@@ -241,8 +243,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
       if (newRepo.id) {
         try {
           setSyncingRepos((prev) => new Set(prev).add(newRepo.id))
-          await apiClient.syncRepository(newRepo.id)
+          const syncResult = await apiClient.syncRepository(newRepo.id)
           await loadInitialData() // Reload to get updated sync status
+          
+          // Display sync status message
+          showInfo(syncResult.message)
         } catch (syncErr) {
           // Sync error is not critical - repository was added successfully
           // The error will be shown in the repository tile

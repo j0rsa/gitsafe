@@ -364,6 +364,8 @@ pub async fn add_repository(
         credential_id: data.credential_id.clone(),
         enabled: true,
         last_sync: None,
+        last_sync_commit_hash: None,
+        last_sync_message: None,
         error: None,
         size: None,
         attempts_left: None,
@@ -551,7 +553,7 @@ pub async fn sync_repository(
     .map_err(|e| AppError::InternalError(format!("Task join error: {}", e)))?;
 
     // Handle sync errors and notify webhooks
-    let (archive_path, archive_size) = match sync_result {
+    let sync_result_data = match sync_result {
         Ok(result) => result,
         Err(e) => {
             let error_message = e.to_string();
@@ -596,15 +598,17 @@ pub async fn sync_repository(
         }
     };
 
-    // Update repository size and last_sync on success
+    // Update repository size, last_sync, commit hash, and commit message on success
     let mut config = config_arc.write().await;
     let config_to_save = if let Some(repo) = config
         .repositories
         .iter_mut()
         .find(|r| r.id == repository_id)
     {
-        repo.size = Some(archive_size);
+        repo.size = Some(sync_result_data.size);
         repo.last_sync = Some(chrono::Utc::now());
+        repo.last_sync_commit_hash = Some(sync_result_data.commit_hash.clone());
+        repo.last_sync_message = Some(sync_result_data.status_message.clone());
         handle_sync_success(repo);
         Some(config.clone())
     } else {
@@ -617,9 +621,12 @@ pub async fn sync_repository(
     }
 
     Ok(HttpResponse::Ok().json(serde_json::json!({
-        "message": "Repository synced successfully",
-        "path": archive_path.to_string_lossy(),
-        "size": archive_size
+        "message": sync_result_data.status_message,
+        "path": sync_result_data.path.to_string_lossy(),
+        "size": sync_result_data.size,
+        "commit_hash": sync_result_data.commit_hash,
+        "commit_message": sync_result_data.commit_message,
+        "skipped": sync_result_data.skipped
     })))
 }
 

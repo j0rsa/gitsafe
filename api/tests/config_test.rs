@@ -31,6 +31,8 @@ fn test_config_serialization() {
         credential_id: None,
         enabled: true,
         last_sync: None,
+        last_sync_commit_hash: None,
+        last_sync_message: None,
         error: None,
         attempts_left: None,
     });
@@ -68,6 +70,8 @@ fn test_repository_creation() {
         credential_id: Some("cred-id".to_string()),
         enabled: true,
         last_sync: None,
+        last_sync_commit_hash: None,
+        last_sync_message: None,
         error: None,
         attempts_left: None,
     };
@@ -153,6 +157,8 @@ fn test_config_save_and_load() {
         credential_id: None,
         enabled: true,
         last_sync: None,
+        last_sync_commit_hash: None,
+        last_sync_message: None,
         error: None,
         attempts_left: None,
     });

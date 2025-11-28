@@ -140,7 +140,7 @@ class ApiClient {
     await this.request(`/repositories/${id}`, { method: 'DELETE' })
   }
 
-  async syncRepository(repositoryId: string): Promise<{ message: string; archive: string }> {
+  async syncRepository(repositoryId: string): Promise<{ message: string; archive: string; commit_message?: string; commit_hash?: string; skipped?: boolean }> {
     return this.request('/sync', {
       method: 'POST',
       body: JSON.stringify({ repository_id: repositoryId }),

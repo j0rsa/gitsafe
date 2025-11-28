@@ -16,3 +16,5 @@ pub mod git;
 pub mod handlers;
 pub mod middleware;
 pub mod webhooks;
+
+pub use git::SyncResult;

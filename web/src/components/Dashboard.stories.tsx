@@ -80,7 +80,13 @@ export const Default: Story = {
       apiClient.getCredentials = async () => sampleCredentials
       apiClient.syncRepository = async () => {
         await new Promise((resolve) => setTimeout(resolve, 2000))
-        return { message: 'Synced', archive: 'archive.zip' }
+        return { 
+          message: 'Synced', 
+          archive: 'archive.zip',
+          commit_message: 'Fix bug in sync logic',
+          commit_hash: 'abc123',
+          skipped: false
+        }
       }
       apiClient.deleteRepository = async () => {}
       
@@ -96,7 +102,13 @@ export const WithData: Story = {
       apiClient.getCredentials = async () => sampleCredentials
       apiClient.syncRepository = async () => {
         await new Promise((resolve) => setTimeout(resolve, 2000))
-        return { message: 'Synced', archive: 'archive.zip' }
+        return { 
+          message: 'Synced', 
+          archive: 'archive.zip',
+          commit_message: 'Fix bug in sync logic',
+          commit_hash: 'abc123',
+          skipped: false
+        }
       }
       apiClient.deleteRepository = async () => {}
       
@@ -110,7 +122,13 @@ export const EmptyState: Story = {
     (Story) => {
       apiClient.getRepositories = async () => []
       apiClient.getCredentials = async () => []
-      apiClient.syncRepository = async () => ({ message: 'Synced', archive: 'archive.zip' })
+      apiClient.syncRepository = async () => ({ 
+        message: 'Synced', 
+        archive: 'archive.zip',
+        commit_message: 'Fix bug in sync logic',
+        commit_hash: 'abc123',
+        skipped: false
+      })
       apiClient.deleteRepository = async () => {}
       
       return <Story />

@@ -91,6 +91,10 @@ pub struct Repository {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub last_sync: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_sync_commit_hash: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_sync_message: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     /// Repository size in bytes (archive size or folder size)

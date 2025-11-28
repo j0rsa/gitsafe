@@ -37,4 +37,4 @@ api/static/*
 
 /archives
 config.yaml
-!ha-addon/config.yaml
+!gitsafe/config.yaml

@@ -63,19 +63,33 @@ pub async fn setup_scheduler(
                 };
 
                 match sync_result {
-                    Ok((archive_path, archive_size)) => {
-                        info!(
-                            "Successfully synced repository {}: {:?} ({} bytes)",
-                            repo.id, archive_path, archive_size
-                        );
+                    Ok(sync_result_data) => {
+                        if sync_result_data.skipped {
+                            info!(
+                                "Repository {} already up-to-date (commit: {}), skipped sync",
+                                repo.id, sync_result_data.commit_hash
+                            );
+                        } else {
+                            info!(
+                                "Successfully synced repository {}: {:?} ({} bytes), commit: {}",
+                                repo.id,
+                                sync_result_data.path,
+                                sync_result_data.size,
+                                sync_result_data.commit_hash
+                            );
+                        }
 
-                        // Update repository size and last_sync in config
+                        // Update repository size, last_sync, commit hash, and commit message in config
                         let mut cfg = config_clone.write().await;
                         let config_to_save = if let Some(repo_mut) =
                             cfg.repositories.iter_mut().find(|r| r.id == repo.id)
                         {
-                            repo_mut.size = Some(archive_size);
+                            repo_mut.size = Some(sync_result_data.size);
                             repo_mut.last_sync = Some(chrono::Utc::now());
+                            repo_mut.last_sync_commit_hash =
+                                Some(sync_result_data.commit_hash.clone());
+                            repo_mut.last_sync_message =
+                                Some(sync_result_data.status_message.clone());
 
                             // Reset attempts_left on successful sync (recovered from errors)
                             if repo_mut.attempts_left.is_some() {

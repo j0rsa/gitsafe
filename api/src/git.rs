@@ -14,6 +14,23 @@ use std::path::{Path, PathBuf};
 use tar::{Archive, Builder};
 use uuid::Uuid;
 
+/// Result of a repository sync operation.
+#[derive(Debug, Clone)]
+pub struct SyncResult {
+    /// Path to the repository archive (compact mode) or folder (non-compact mode)
+    pub path: PathBuf,
+    /// Size in bytes
+    pub size: u64,
+    /// Latest commit hash
+    pub commit_hash: String,
+    /// Latest commit message (first line)
+    pub commit_message: String,
+    /// Whether the sync was skipped because repository was already up-to-date
+    pub skipped: bool,
+    /// Status message from GitSafe (e.g., "Repository synced successfully" or "Repository already up-to-date")
+    pub status_message: String,
+}
+
 /// Service for managing Git repository synchronization and archiving.
 ///
 /// The service supports two storage modes:
@@ -281,6 +298,11 @@ impl GitService {
 
     /// Synchronizes a Git repository, updating it with the latest changes from the remote.
     ///
+    /// Before performing any expensive operations (unpacking, pulling), this method checks
+    /// if the repository is already up-to-date by comparing the remote HEAD commit hash with
+    /// the stored `last_sync_commit_hash`. If they match, the sync is skipped and only the
+    /// timestamp is updated.
+    ///
     /// The behavior depends on the `compact` mode:
     /// - **Compact mode**: Unpacks existing archive (if any), pulls/clones updates,
     ///   creates a new archive, and cleans up temporary files.
@@ -295,13 +317,17 @@ impl GitService {
     ///
     /// # Returns
     ///
-    /// Returns a tuple containing:
-    /// - `PathBuf`: Path to the archive file (compact mode) or repository folder (non-compact mode)
-    /// - `u64`: Size in bytes of the archive or folder
+    /// Returns `SyncResult` containing:
+    /// - Path to the archive file (compact mode) or repository folder (non-compact mode)
+    /// - Size in bytes of the archive or folder
+    /// - Latest commit hash
+    /// - Latest commit message (first line)
+    /// - Whether the sync was skipped (already up-to-date)
     ///
     /// # Errors
     ///
     /// Returns `AppError` if:
+    /// - Fetching remote commit hash fails
     /// - Repository cloning fails
     /// - Pulling updates fails
     /// - Archive creation/unpacking fails
@@ -320,11 +346,13 @@ impl GitService {
     ///     credential_id: None,
     ///     enabled: true,
     ///     last_sync: None,
+    ///     last_sync_commit_hash: None,
+    ///     last_sync_message: None,
     ///     error: None,
     ///     size: None,
     ///     attempts_left: None,
     /// };
-    /// let (path, size) = service.sync_repository(&repo, None, "encryption-key")?;
+    /// let result = service.sync_repository(&repo, None, "encryption-key")?;
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     pub fn sync_repository(
@@ -332,8 +360,53 @@ impl GitService {
         repo: &Repository,
         credential: Option<&Credential>,
         encryption_key: &str,
-    ) -> Result<(PathBuf, u64), AppError> {
+    ) -> Result<SyncResult, AppError> {
         info!("Syncing repository: {} ({})", repo.id, repo.url);
+
+        // Check if repository is already up-to-date by comparing commit hashes
+        if repo.last_sync_commit_hash.is_some() {
+            match self.get_latest_commit_hash(&repo.url, credential, encryption_key) {
+                Ok((remote_hash, remote_message)) => {
+                    // If we have a stored hash and it matches, skip the sync
+                    if let Some(ref stored_hash) = repo.last_sync_commit_hash {
+                        if stored_hash == &remote_hash {
+                            info!(
+                                "Repository {} is already up-to-date (commit: {}), skipping sync",
+                                repo.id, remote_hash
+                            );
+
+                            // Use repo_path_from_url for storage paths (with slashes)
+                            let repo_path = Self::repo_path_from_url(&repo.url, self.compact);
+                            let archive_path = self.archive_dir.join(&repo_path);
+
+                            // Get existing size
+                            let size = if archive_path.exists() {
+                                fs::metadata(&archive_path).map(|m| m.len()).unwrap_or(0)
+                            } else {
+                                0
+                            };
+
+                            return Ok(SyncResult {
+                                path: archive_path,
+                                size,
+                                commit_hash: remote_hash,
+                                commit_message: remote_message,
+                                skipped: true,
+                                status_message: "Repository already up-to-date".to_string(),
+                            });
+                        }
+                    }
+                }
+                Err(e) => {
+                    // If we can't fetch the remote hash, log a warning but continue with sync
+                    // This might happen if the repository is new or network issues occur
+                    info!(
+                        "Could not fetch remote commit hash for {}: {}. Proceeding with sync.",
+                        repo.id, e
+                    );
+                }
+            }
+        }
 
         // Use repo_path_from_url for storage paths (with slashes)
         // Pass compact mode to get correct path (archive or directory)
@@ -346,192 +419,26 @@ impl GitService {
         }
     }
 
-    /// Synchronizes a repository in compact mode (tarball storage).
+    /// Creates RemoteCallbacks configured with authentication from a credential.
     ///
-    /// Process:
-    /// 1. If an existing archive exists, unpack it to a temporary directory
-    /// 2. Clone the repository (if new) or pull updates (if exists)
-    /// 3. Create a new compressed tarball archive
-    /// 4. Replace the old archive with the new one
-    /// 5. Clean up temporary repository folder
-    /// 6. Return the archive path and size
+    /// Handles both SSH key and username/password authentication, with automatic
+    /// decryption of encrypted credentials.
     ///
     /// # Arguments
     ///
-    /// * `repo` - The repository configuration
-    /// * `repo_path_str` - The generated repository path (from URL, includes .tar.gz extension)
-    /// * `credential` - Optional credential for authentication
-    /// * `encryption_key` - Key for decrypting SSH keys
-    ///
-    /// # Returns
-    ///
-    /// Tuple of (archive_path, archive_size_in_bytes)
-    fn sync_repository_compact(
-        &self,
-        repo: &Repository,
-        repo_path_str: &str,
-        credential: Option<&Credential>,
-        encryption_key: &str,
-    ) -> Result<(PathBuf, u64), AppError> {
-        // repo_path_str already includes .tar.gz extension from repo_path_from_url
-        let archive_path = self.archive_dir.join(repo_path_str);
-
-        // Ensure parent directories exist
-        if let Some(parent) = archive_path.parent() {
-            fs::create_dir_all(parent)?;
-        }
-
-        let temp_dir = tempfile::tempdir().map_err(AppError::IoError)?;
-        let work_dir = temp_dir.path();
-        // Extract just the repo name (last segment before .tar.gz) for the working directory
-        let repo_path_without_ext = repo_path_str
-            .strip_suffix(".tar.gz")
-            .unwrap_or(repo_path_str);
-        let repo_name_only = repo_path_without_ext
-            .split('/')
-            .next_back()
-            .unwrap_or(repo_path_without_ext);
-        let repo_path = work_dir.join(repo_name_only);
-
-        // If archive exists, unpack it first
-        if archive_path.exists() {
-            info!("Unpacking existing archive for repository: {}", repo.id);
-            self.unpack_archive(&archive_path, work_dir)?;
-        }
-
-        // Clone or pull the repository
-        if repo_path.exists() && repo_path.join(".git").exists() {
-            // Repository exists, pull updates
-            info!("Pulling updates for repository: {}", repo.id);
-            let git_repo = GitRepository::open(&repo_path)
-                .map_err(|e| AppError::GitError(format!("Failed to open repository: {}", e)))?;
-            self.pull_repository(&git_repo, credential, encryption_key)?;
-        } else {
-            // Clone new repository
-            info!("Cloning repository: {}", repo.id);
-            self.clone_repository(&repo.url, &repo_path, credential, encryption_key)?;
-        }
-
-        // Create new archive (use repo_name_only for archive contents, but store at repo_name path)
-        // Pass the final archive path so temp archive is created in the same directory
-        let new_archive_path = self.create_archive(repo_name_only, &repo_path, &archive_path)?;
-
-        // Calculate archive size
-        let archive_size = fs::metadata(&new_archive_path)
-            .map(|m| m.len())
-            .unwrap_or(0);
-
-        // Replace old archive with new one
-        // Ensure parent directory exists before moving
-        if let Some(parent) = archive_path.parent() {
-            fs::create_dir_all(parent)?;
-        }
-        if archive_path.exists() {
-            fs::remove_file(&archive_path)?;
-        }
-        fs::rename(&new_archive_path, &archive_path)?;
-
-        // Clean up repo folder
-        if repo_path.exists() {
-            fs::remove_dir_all(&repo_path)?;
-        }
-
-        info!(
-            "Created archive: {:?} ({} bytes)",
-            archive_path, archive_size
-        );
-        Ok((archive_path, archive_size))
-    }
-
-    /// Synchronizes a repository in non-compact mode (folder storage).
-    ///
-    /// Process:
-    /// 1. If repository folder exists, pull updates
-    /// 2. If repository folder doesn't exist, clone the repository
-    /// 3. Calculate cumulative size of the repository folder
-    /// 4. Return the folder path and size
-    ///
-    /// # Arguments
-    ///
-    /// * `repo` - The repository configuration
-    /// * `repo_path_str` - The generated repository path (from URL, directory path without .tar.gz)
-    /// * `credential` - Optional credential for authentication
-    /// * `encryption_key` - Key for decrypting SSH keys
-    ///
-    /// # Returns
-    ///
-    /// Tuple of (folder_path, cumulative_size_in_bytes)
-    fn sync_repository_non_compact(
-        &self,
-        repo: &Repository,
-        repo_path_str: &str,
-        credential: Option<&Credential>,
-        encryption_key: &str,
-    ) -> Result<(PathBuf, u64), AppError> {
-        // Create nested directory structure for repository
-        let repo_path = self.archive_dir.join(repo_path_str);
-
-        // Ensure parent directories exist
-        if let Some(parent) = repo_path.parent() {
-            fs::create_dir_all(parent)?;
-        }
-
-        // Clone or pull the repository
-        if repo_path.exists() && repo_path.join(".git").exists() {
-            // Repository exists, pull updates
-            info!("Pulling updates for repository: {}", repo.id);
-            let git_repo = GitRepository::open(&repo_path)
-                .map_err(|e| AppError::GitError(format!("Failed to open repository: {}", e)))?;
-            self.pull_repository(&git_repo, credential, encryption_key)?;
-        } else {
-            // Clone new repository
-            info!("Cloning repository: {}", repo.id);
-            self.clone_repository(&repo.url, &repo_path, credential, encryption_key)?;
-        }
-
-        // Calculate cumulative folder size
-        let folder_size = self.calculate_folder_size(&repo_path)?;
-
-        info!(
-            "Synced repository to folder: {:?} ({} bytes)",
-            repo_path, folder_size
-        );
-        Ok((repo_path, folder_size))
-    }
-
-    /// Clones a Git repository from a remote URL.
-    ///
-    /// Supports authentication via:
-    /// - Username/password (HTTP/HTTPS)
-    /// - SSH key (from memory or file path)
-    /// - Encrypted SSH keys (automatically decrypted)
-    ///
-    /// # Arguments
-    ///
-    /// * `url` - The Git repository URL to clone
-    /// * `repo_path` - Local path where the repository should be cloned
     /// * `credential` - Optional credential for authenticated access
-    /// * `encryption_key` - Key used to decrypt SSH keys if encrypted
+    /// * `encryption_key` - Key used to decrypt SSH keys and passwords if encrypted
     ///
     /// # Returns
     ///
-    /// Returns `Ok(())` on success, or `AppError` if cloning fails.
-    ///
-    /// # Errors
-    ///
-    /// Returns `AppError::GitError` if:
-    /// - The repository URL is invalid
-    /// - Authentication fails
-    /// - Network connection fails
-    /// - File system operations fail
-    fn clone_repository(
+    /// Returns `Ok(RemoteCallbacks)` configured with authentication, or `AppError` if
+    /// credential decryption fails.
+    #[allow(mismatched_lifetime_syntaxes)] // RemoteCallbacks doesn't have a lifetime parameter
+    fn create_remote_callbacks(
         &self,
-        url: &str,
-        repo_path: &Path,
         credential: Option<&Credential>,
         encryption_key: &str,
-    ) -> Result<(), AppError> {
-        // Set up callbacks for authentication
+    ) -> Result<RemoteCallbacks, AppError> {
         let mut callbacks = RemoteCallbacks::new();
 
         if let Some(cred) = credential {
@@ -592,6 +499,339 @@ impl GitService {
                 }
             });
         }
+
+        Ok(callbacks)
+    }
+
+    /// Gets the latest commit hash and message from a local repository.
+    ///
+    /// # Arguments
+    ///
+    /// * `git_repo` - An open Git repository instance
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok((commit_hash, commit_message))` on success.
+    fn get_local_commit_info(
+        &self,
+        git_repo: &GitRepository,
+    ) -> Result<(String, String), AppError> {
+        let head = git_repo
+            .head()
+            .map_err(|e| AppError::GitError(format!("Failed to get HEAD: {}", e)))?;
+        let commit = head
+            .peel_to_commit()
+            .map_err(|e| AppError::GitError(format!("Failed to peel to commit: {}", e)))?;
+
+        let commit_hash = commit.id().to_string();
+        let commit_message = commit
+            .message()
+            .unwrap_or("(no message)")
+            .lines()
+            .next()
+            .unwrap_or("(no message)")
+            .to_string();
+
+        Ok((commit_hash, commit_message))
+    }
+
+    /// Synchronizes a repository in compact mode (tarball storage).
+    ///
+    /// Process:
+    /// 1. If an existing archive exists, unpack it to a temporary directory
+    /// 2. Clone the repository (if new) or pull updates (if exists)
+    /// 3. Create a new compressed tarball archive
+    /// 4. Replace the old archive with the new one
+    /// 5. Clean up temporary repository folder
+    /// 6. Return the archive path, size, and commit information
+    ///
+    /// # Arguments
+    ///
+    /// * `repo` - The repository configuration
+    /// * `repo_path_str` - The generated repository path (from URL, includes .tar.gz extension)
+    /// * `credential` - Optional credential for authentication
+    /// * `encryption_key` - Key for decrypting SSH keys
+    ///
+    /// # Returns
+    ///
+    /// `SyncResult` containing archive path, size, commit hash, and commit message
+    fn sync_repository_compact(
+        &self,
+        repo: &Repository,
+        repo_path_str: &str,
+        credential: Option<&Credential>,
+        encryption_key: &str,
+    ) -> Result<SyncResult, AppError> {
+        // repo_path_str already includes .tar.gz extension from repo_path_from_url
+        let archive_path = self.archive_dir.join(repo_path_str);
+
+        // Ensure parent directories exist
+        if let Some(parent) = archive_path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+
+        let temp_dir = tempfile::tempdir().map_err(AppError::IoError)?;
+        let work_dir = temp_dir.path();
+        // Extract just the repo name (last segment before .tar.gz) for the working directory
+        let repo_path_without_ext = repo_path_str
+            .strip_suffix(".tar.gz")
+            .unwrap_or(repo_path_str);
+        let repo_name_only = repo_path_without_ext
+            .split('/')
+            .next_back()
+            .unwrap_or(repo_path_without_ext);
+        let repo_path = work_dir.join(repo_name_only);
+
+        // If archive exists, unpack it first
+        if archive_path.exists() {
+            info!("Unpacking existing archive for repository: {}", repo.id);
+            self.unpack_archive(&archive_path, work_dir)?;
+        }
+
+        // Clone or pull the repository
+        let git_repo = if repo_path.exists() && repo_path.join(".git").exists() {
+            // Repository exists, pull updates
+            info!("Pulling updates for repository: {}", repo.id);
+            let git_repo = GitRepository::open(&repo_path)
+                .map_err(|e| AppError::GitError(format!("Failed to open repository: {}", e)))?;
+            self.pull_repository(&git_repo, credential, encryption_key)?;
+            git_repo
+        } else {
+            // Clone new repository
+            info!("Cloning repository: {}", repo.id);
+            self.clone_repository(&repo.url, &repo_path, credential, encryption_key)?;
+            GitRepository::open(&repo_path).map_err(|e| {
+                AppError::GitError(format!("Failed to open repository after clone: {}", e))
+            })?
+        };
+
+        // Get commit hash and message from the synced repository
+        let (commit_hash, commit_message) = self.get_local_commit_info(&git_repo)?;
+
+        // Create new archive (use repo_name_only for archive contents, but store at repo_name path)
+        // Pass the final archive path so temp archive is created in the same directory
+        let new_archive_path = self.create_archive(repo_name_only, &repo_path, &archive_path)?;
+
+        // Calculate archive size
+        let archive_size = fs::metadata(&new_archive_path)
+            .map(|m| m.len())
+            .unwrap_or(0);
+
+        // Replace old archive with new one
+        // Ensure parent directory exists before moving
+        if let Some(parent) = archive_path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        if archive_path.exists() {
+            fs::remove_file(&archive_path)?;
+        }
+        fs::rename(&new_archive_path, &archive_path)?;
+
+        // Clean up repo folder
+        if repo_path.exists() {
+            fs::remove_dir_all(&repo_path)?;
+        }
+
+        info!(
+            "Created archive: {:?} ({} bytes), commit: {}",
+            archive_path, archive_size, commit_hash
+        );
+        Ok(SyncResult {
+            path: archive_path,
+            size: archive_size,
+            commit_hash,
+            commit_message,
+            skipped: false,
+            status_message: "Repository synced successfully".to_string(),
+        })
+    }
+
+    /// Synchronizes a repository in non-compact mode (folder storage).
+    ///
+    /// Process:
+    /// 1. If repository folder exists, pull updates
+    /// 2. If repository folder doesn't exist, clone the repository
+    /// 3. Calculate cumulative size of the repository folder
+    /// 4. Return the folder path, size, and commit information
+    ///
+    /// # Arguments
+    ///
+    /// * `repo` - The repository configuration
+    /// * `repo_path_str` - The generated repository path (from URL, directory path without .tar.gz)
+    /// * `credential` - Optional credential for authentication
+    /// * `encryption_key` - Key for decrypting SSH keys
+    ///
+    /// # Returns
+    ///
+    /// `SyncResult` containing folder path, size, commit hash, and commit message
+    fn sync_repository_non_compact(
+        &self,
+        repo: &Repository,
+        repo_path_str: &str,
+        credential: Option<&Credential>,
+        encryption_key: &str,
+    ) -> Result<SyncResult, AppError> {
+        // Create nested directory structure for repository
+        let repo_path = self.archive_dir.join(repo_path_str);
+
+        // Ensure parent directories exist
+        if let Some(parent) = repo_path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+
+        // Clone or pull the repository
+        let git_repo = if repo_path.exists() && repo_path.join(".git").exists() {
+            // Repository exists, pull updates
+            info!("Pulling updates for repository: {}", repo.id);
+            let git_repo = GitRepository::open(&repo_path)
+                .map_err(|e| AppError::GitError(format!("Failed to open repository: {}", e)))?;
+            self.pull_repository(&git_repo, credential, encryption_key)?;
+            git_repo
+        } else {
+            // Clone new repository
+            info!("Cloning repository: {}", repo.id);
+            self.clone_repository(&repo.url, &repo_path, credential, encryption_key)?;
+            GitRepository::open(&repo_path).map_err(|e| {
+                AppError::GitError(format!("Failed to open repository after clone: {}", e))
+            })?
+        };
+
+        // Get commit hash and message from the synced repository
+        let (commit_hash, commit_message) = self.get_local_commit_info(&git_repo)?;
+
+        // Calculate cumulative folder size
+        let folder_size = self.calculate_folder_size(&repo_path)?;
+
+        info!(
+            "Synced repository to folder: {:?} ({} bytes), commit: {}",
+            repo_path, folder_size, commit_hash
+        );
+        Ok(SyncResult {
+            path: repo_path,
+            size: folder_size,
+            commit_hash,
+            commit_message,
+            skipped: false,
+            status_message: "Repository synced successfully".to_string(),
+        })
+    }
+
+    /// Gets the latest commit hash and message from a remote repository without cloning.
+    ///
+    /// This method creates a temporary bare repository, connects to the remote,
+    /// and fetches the HEAD reference to get the latest commit information.
+    ///
+    /// # Arguments
+    ///
+    /// * `url` - The Git repository URL
+    /// * `credential` - Optional credential for authenticated access
+    /// * `encryption_key` - Key used to decrypt SSH keys if encrypted
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok((commit_hash, commit_message))` on success, or `AppError` if fetching fails.
+    ///
+    /// # Errors
+    ///
+    /// Returns `AppError::GitError` if:
+    /// - The repository URL is invalid
+    /// - Authentication fails
+    /// - Network connection fails
+    /// - Remote HEAD reference cannot be found
+    fn get_latest_commit_hash(
+        &self,
+        url: &str,
+        credential: Option<&Credential>,
+        encryption_key: &str,
+    ) -> Result<(String, String), AppError> {
+        // Create a temporary bare repository
+        let temp_dir = tempfile::tempdir().map_err(AppError::IoError)?;
+        let repo = GitRepository::init_bare(temp_dir.path())
+            .map_err(|e| AppError::GitError(format!("Failed to init bare repository: {}", e)))?;
+
+        // Create an anonymous remote
+        let mut remote = repo
+            .remote_anonymous(url)
+            .map_err(|e| AppError::GitError(format!("Failed to create remote: {}", e)))?;
+
+        // Set up callbacks for authentication
+        let callbacks = self.create_remote_callbacks(credential, encryption_key)?;
+
+        // Set up fetch options with callbacks
+        let mut fetch_options = FetchOptions::new();
+        fetch_options.remote_callbacks(callbacks);
+
+        // Try to fetch common default branches (main, master, or HEAD)
+        let mut commit_oid = None;
+        let mut commit_message = String::from("(no message)");
+
+        // Try fetching main branch first
+        for branch_name in &["refs/heads/main", "refs/heads/master", "HEAD"] {
+            let refspec = format!("{}:refs/remotes/origin/{}", branch_name, branch_name);
+            if remote
+                .fetch(&[&refspec], Some(&mut fetch_options), None)
+                .is_ok()
+            {
+                // Try to find the fetched reference
+                if let Ok(reference) =
+                    repo.find_reference(&format!("refs/remotes/origin/{}", branch_name))
+                {
+                    if let Ok(commit) = reference.peel_to_commit() {
+                        commit_oid = Some(commit.id());
+                        commit_message = commit
+                            .message()
+                            .unwrap_or("(no message)")
+                            .lines()
+                            .next()
+                            .unwrap_or("(no message)")
+                            .to_string();
+                        break;
+                    }
+                }
+            }
+        }
+
+        let commit_oid = commit_oid.ok_or_else(|| {
+            AppError::GitError("Could not fetch HEAD, main, or master branch from remote. The repository may be empty or inaccessible.".to_string())
+        })?;
+
+        Ok((commit_oid.to_string(), commit_message))
+    }
+
+    /// Clones a Git repository from a remote URL.
+    ///
+    /// Supports authentication via:
+    /// - Username/password (HTTP/HTTPS)
+    /// - SSH key (from memory or file path)
+    /// - Encrypted SSH keys (automatically decrypted)
+    ///
+    /// # Arguments
+    ///
+    /// * `url` - The Git repository URL to clone
+    /// * `repo_path` - Local path where the repository should be cloned
+    /// * `credential` - Optional credential for authenticated access
+    /// * `encryption_key` - Key used to decrypt SSH keys if encrypted
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(())` on success, or `AppError` if cloning fails.
+    ///
+    /// # Errors
+    ///
+    /// Returns `AppError::GitError` if:
+    /// - The repository URL is invalid
+    /// - Authentication fails
+    /// - Network connection fails
+    /// - File system operations fail
+    fn clone_repository(
+        &self,
+        url: &str,
+        repo_path: &Path,
+        credential: Option<&Credential>,
+        encryption_key: &str,
+    ) -> Result<(), AppError> {
+        // Set up callbacks for authentication
+        let callbacks = self.create_remote_callbacks(credential, encryption_key)?;
 
         let mut fetch_options = FetchOptions::new();
         fetch_options.remote_callbacks(callbacks);
@@ -648,66 +888,7 @@ impl GitService {
             .map_err(|e| AppError::GitError(format!("Failed to find remote: {}", e)))?;
 
         // Set up callbacks for authentication
-        let mut callbacks = RemoteCallbacks::new();
-
-        if let Some(cred) = credential {
-            let username = cred.username.clone();
-            // Decrypt password if present and encrypted, or use as-is for backward compatibility
-            let password = cred
-                .password
-                .as_ref()
-                .map(|p| encryption::decrypt_password(p, encryption_key))
-                .unwrap_or_default();
-
-            // Decrypt SSH key if encrypted
-            let ssh_key_data: Option<String> = if let Some(ref key_data) = cred.ssh_key {
-                // Check if it's plaintext SSH key content
-                if key_data.starts_with("-----BEGIN") || key_data.contains('\n') {
-                    Some(key_data.clone())
-                } else {
-                    // Likely encrypted - try to decrypt
-                    match encryption::decrypt_ssh_key(key_data, encryption_key) {
-                        Ok(decrypted) => Some(decrypted),
-                        Err(_) => {
-                            // If decryption fails, return error - SSH keys must be valid content
-                            return Err(AppError::GitError(
-                                "Invalid SSH key: decryption failed and key does not appear to be valid SSH key content".to_string()
-                            ));
-                        }
-                    }
-                }
-            } else {
-                None
-            };
-
-            callbacks.credentials(move |_url, username_from_url, allowed_types| {
-                // Prefer SSH key if available and requested
-                if allowed_types.contains(CredentialType::SSH_KEY) {
-                    if let Some(ref key_data) = ssh_key_data {
-                        // Use SSH key from memory
-                        return Cred::ssh_key_from_memory(
-                            username_from_url.unwrap_or(&username),
-                            None,
-                            key_data,
-                            None,
-                        );
-                    } else {
-                        return Err(git2::Error::from_str("Authentication failed: no SSH key provided for git repository. Have you chosen the correct credential or passed the correct repository URL?"))
-                    }
-                }
-
-                // Fall back to username/password for HTTP/HTTPS if available
-                if allowed_types.contains(CredentialType::USER_PASS_PLAINTEXT) {
-                    if !password.is_empty() {
-                        Cred::userpass_plaintext(&username, &password)
-                    } else {
-                        Err(git2::Error::from_str("Authentication failed: no password provided for HTTP/HTTPS git repository. Have you chosen the correct credential or passed the correct repository URL?"))
-                    }
-                } else {
-                    Err(git2::Error::from_str("Authentication failed: no matching credentials available. Have you chosen the correct credential or passed the correct repository URL?"))
-                }
-            });
-        }
+        let callbacks = self.create_remote_callbacks(credential, encryption_key)?;
 
         let mut fetch_options = FetchOptions::new();
         fetch_options.remote_callbacks(callbacks);

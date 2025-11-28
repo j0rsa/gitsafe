@@ -319,10 +319,6 @@ jobs:
     name: Build Docker Image
     runs-on: ubuntu-latest
     needs: [build-binary, build-web]
-    permissions:
-      contents: read
-      packages: write 
-      id-token: write # Needed for Cosign signing
     steps:
       - uses: actions/checkout@v4
       
@@ -385,6 +381,10 @@ jobs:
     name: Build Home Assistant Addon Docker Image
     runs-on: ubuntu-latest
     needs: [build-binary, build-web]
+    permissions:
+      contents: read
+      packages: write 
+      id-token: write # Needed for Cosign signing
     steps:
       - uses: actions/checkout@v4
       
@@ -394,11 +394,11 @@ jobs:
           name: gitsafe-amd64
           path: gitsafe/binary-amd64
 
-      - name: Download arm64 binary artifact as aarch64
+      - name: Download arm64 binary artifact
         uses: actions/download-artifact@v4
         with:
           name: gitsafe-arm64
-          path: gitsafe/binary-aarch64
+          path: gitsafe/binary-arm64
       
       - name: Download web build artifact
         uses: actions/download-artifact@v4

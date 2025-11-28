@@ -409,7 +409,7 @@ jobs:
       - name: Make binaries executable
         run: |
           chmod +x gitsafe/binary-amd64/gitsafe
-          chmod +x gitsafe/binary-aarch64/gitsafe
+          chmod +x gitsafe/binary-arm64/gitsafe
 
       - name: Login to GitHub Container Registry
         if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')

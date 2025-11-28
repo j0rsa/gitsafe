@@ -123,22 +123,28 @@ cargo run --release
 
 The server will start on the configured host and port (default: `http://127.0.0.1:8080`).
 
-### Quick Demo
-
-A demo script is included to showcase the API functionality:
+## Testing
 
 ```bash
-./demo.sh
+make run
 ```
 
-This script will:
-1. Check server health
-2. Login with default credentials
-3. Create a credential
-4. Add a public repository
-5. List all repositories and credentials
+The server will start on the configured host and port (default: `http://127.0.0.1:8080`).
 
-**Note**: Make sure the server is running and you have `jq` installed before running the demo.
+### Simulating ingress
+
+```bash
+brew install caddy
+caddy run --config - --adapter caddyfile <<EOF
+:8081 {
+    handle_path /example/one/* {
+        reverse_proxy localhost:8080
+    }
+}
+EOF
+```
+
+The server will be available at `http://localhost:8081/example/one`.
 
 ### API Endpoints
 

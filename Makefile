@@ -1,21 +1,21 @@
-.PHONY: build run build-api build-web test fix hooks
+.PHONY: build run api web test fix hooks
 
 # Build both web and API
-build: build-web build-api
+build: web api
 
 # Build the API (Rust)
-build-api:
+api:
 	@echo "🔨 Building API..."
 	cd api && cargo build --release
 
 # Build the web frontend
-build-web:
+web:
 	@echo "🌐 Building web frontend..."
 	cd web && bun run build
 
 # Run the application for testing with RUST_LOG=info
 # Note: This will build the API if not already built
-run: build-api
+run: api
 	@echo "🚀 Running application with RUST_LOG=info..."
 	RUST_LOG=info GITSAFE__SERVER__STATIC_DIR=api/static cargo run --release --manifest-path api/Cargo.toml
 

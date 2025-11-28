@@ -1,5 +1,5 @@
 name: GitSafe
-version: "0.1.0"
+version: "0.1.1"
 slug: gitsafe
 description: "Automated Git repository backup and synchronization tool with scheduled syncing, credential management, and web UI"
 url: "https://github.com/j0rsa/gitsafe"
@@ -26,7 +26,7 @@ options:
   host: "0.0.0.0"
   jwt_secret: "something-long-and-random"
   encryption_key: "something-long-and-random-and-different-from-jwt-secret"
-  archive_dir: "/share/gitsafe/archives"
+  archive_dir: "/share/gitsafe"
   compact: true
   cron_expression: "0 0 */4 * * *"
   sync_attempts: 5

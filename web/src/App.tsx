@@ -61,7 +61,7 @@ const App: React.FC = () => {
       <div className="login-container">
         <div className="login-card">
           <div className="login-header">
-            <img src="/assets/logo.png" alt="GitSafe Logo" className="login-logo" />
+            <img src="assets/logo.png" alt="GitSafe Logo" className="login-logo" />
             <h2>GitSafe Login</h2>
           </div>
           <form onSubmit={handleLogin}>

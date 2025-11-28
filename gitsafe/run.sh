@@ -8,10 +8,6 @@
 # Home Assistant automatically provides options as environment variables
 # but we need to convert them to GITSAFE__ format
 
-if bashio::config.has_value 'host'; then
-    export GITSAFE__SERVER__HOST="$(bashio::config 'host')"
-fi
-
 if bashio::config.has_value 'jwt_secret'; then
     export GITSAFE__SERVER__JWT_SECRET="$(bashio::config 'jwt_secret')"
 fi

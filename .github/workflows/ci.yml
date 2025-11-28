@@ -417,6 +417,14 @@ jobs:
         run: |
           chmod +x ha-addon/binary-amd64/gitsafe
           chmod +x ha-addon/binary-aarch64/gitsafe
+
+      - name: Login to GitHub Container Registry
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       
       - name: Build and push Home Assistant addon Docker image
         uses: home-assistant/builder@2024.03.5

@@ -30,7 +30,6 @@ options:
   sync_attempts: 5
   skip_auth: true
 schema:
-  host: str
   jwt_secret: str
   encryption_key: str
   archive_dir: str

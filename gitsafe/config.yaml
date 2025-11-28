@@ -8,7 +8,7 @@ arch:
   - aarch64
 startup: application
 boot: auto
-init: true
+init: false
 ingress: true
 ingress_port: 8080
 panel_icon: mdi:git
@@ -19,6 +19,7 @@ ports:
 ports_description:
   "8080/tcp": "GitSafe API and Web UI (Not configurable with Ingress)"
 map:
+  - addon_config:rw
   - config:rw
   - share:rw
 options:

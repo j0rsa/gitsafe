@@ -11,7 +11,16 @@ ARG TARGETARCH
 RUN apt-get update && apt-get install -y \
     ca-certificates \
     git \
+    openssh-client \
     && rm -rf /var/lib/apt/lists/*
+
+# Create .ssh directory and add known host keys for GitHub and GitLab
+# This allows SSH connections without host key verification errors
+RUN mkdir -p /root/.ssh && \
+    ssh-keyscan github.com >> /root/.ssh/known_hosts 2>/dev/null && \
+    ssh-keyscan gitlab.com >> /root/.ssh/known_hosts 2>/dev/null && \
+    ssh-keyscan ssh.github.com >> /root/.ssh/known_hosts 2>/dev/null && \
+    chmod 600 /root/.ssh/known_hosts
 
 WORKDIR /app
 

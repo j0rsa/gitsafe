@@ -419,12 +419,12 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Print Folder Tree
-        uses: jaywcjlove/github-action-folder-tree@main
-        id: tree
-        with:
-          path: .
-          depth: 4
+      # - name: Print Folder Tree
+      #   uses: jaywcjlove/github-action-folder-tree@main
+      #   id: tree
+      #   with:
+      #     path: .
+      #     depth: 4
 
       - name: Build and push Home Assistant addon Docker image
         uses: home-assistant/builder@2025.11.0

@@ -505,6 +505,11 @@ impl GitService {
 
     /// Gets the latest commit hash and message from a local repository.
     ///
+    /// After pull_repository, the local branch is updated directly (via refs/heads/*:refs/heads/*).
+    /// This function uses FETCH_HEAD first (which contains the commit that was fetched),
+    /// then falls back to the current branch reference (which should be updated after pull),
+    /// and finally HEAD as a last resort.
+    ///
     /// # Arguments
     ///
     /// * `git_repo` - An open Git repository instance
@@ -516,12 +521,71 @@ impl GitService {
         &self,
         git_repo: &GitRepository,
     ) -> Result<(String, String), AppError> {
+        // Get the current branch name
         let head = git_repo
             .head()
             .map_err(|e| AppError::GitError(format!("Failed to get HEAD: {}", e)))?;
-        let commit = head
-            .peel_to_commit()
-            .map_err(|e| AppError::GitError(format!("Failed to peel to commit: {}", e)))?;
+        let branch_name = head
+            .name()
+            .ok_or_else(|| AppError::GitError("Failed to get branch name".to_string()))?;
+
+        info!("Current branch: {}", branch_name);
+
+        // Strategy 1: Use FETCH_HEAD first (same as pull_repository uses)
+        // This is the most reliable since pull_repository uses FETCH_HEAD to get the fetched commit
+        // FETCH_HEAD now contains only the current branch's commit since we fetch only that branch
+        let commit = match git_repo.find_reference("FETCH_HEAD") {
+            Ok(fetch_head) => {
+                info!("Using FETCH_HEAD (same as pull_repository)");
+                // Use the exact same approach as pull_repository:
+                // reference_to_annotated_commit then find_commit
+                let fetch_commit = git_repo
+                    .reference_to_annotated_commit(&fetch_head)
+                    .map_err(|e| {
+                        AppError::GitError(format!(
+                            "Failed to get annotated commit from FETCH_HEAD: {}",
+                            e
+                        ))
+                    })?;
+                let commit_obj = git_repo.find_commit(fetch_commit.id()).map_err(|e| {
+                    AppError::GitError(format!("Failed to find commit from FETCH_HEAD: {}", e))
+                })?;
+                info!("FETCH_HEAD points to commit: {}", commit_obj.id());
+                commit_obj
+            }
+            Err(_) => {
+                // Strategy 2: Use the branch reference (updated by fetch)
+                info!(
+                    "FETCH_HEAD not available, using branch reference: {}",
+                    branch_name
+                );
+                match git_repo.find_reference(branch_name) {
+                    Ok(branch_ref) => {
+                        let branch_commit = branch_ref.peel_to_commit().map_err(|e| {
+                            AppError::GitError(format!(
+                                "Failed to peel branch {} to commit: {}",
+                                branch_name, e
+                            ))
+                        })?;
+                        info!(
+                            "Branch {} points to commit: {}",
+                            branch_name,
+                            branch_commit.id()
+                        );
+                        branch_commit
+                    }
+                    Err(_) => {
+                        // Strategy 3: Fall back to HEAD
+                        info!("Branch reference not found, using HEAD");
+                        let head_commit = head.peel_to_commit().map_err(|e| {
+                            AppError::GitError(format!("Failed to peel HEAD to commit: {}", e))
+                        })?;
+                        info!("HEAD points to commit: {}", head_commit.id());
+                        head_commit
+                    }
+                }
+            }
+        };
 
         let commit_hash = commit.id().to_string();
         let commit_message = commit
@@ -532,6 +596,7 @@ impl GitService {
             .unwrap_or("(no message)")
             .to_string();
 
+        log::debug!("Retrieved commit: {} - {}", commit_hash, commit_message);
         Ok((commit_hash, commit_message))
     }
 
@@ -744,6 +809,8 @@ impl GitService {
         credential: Option<&Credential>,
         encryption_key: &str,
     ) -> Result<(String, String), AppError> {
+        log::debug!("Getting latest commit hash for repository: {}", url);
+
         // Create a temporary bare repository
         let temp_dir = tempfile::tempdir().map_err(AppError::IoError)?;
         let repo = GitRepository::init_bare(temp_dir.path())
@@ -761,40 +828,104 @@ impl GitService {
         let mut fetch_options = FetchOptions::new();
         fetch_options.remote_callbacks(callbacks);
 
-        // Try to fetch common default branches (main, master, or HEAD)
-        let mut commit_oid = None;
-        let mut commit_message = String::from("(no message)");
+        // For SSH remotes, we need to establish connection first
+        // Fetch with empty refspec list to connect and authenticate
+        remote
+            .fetch(&[] as &[&str], Some(&mut fetch_options), None)
+            .map_err(|e| AppError::GitError(format!("Failed to connect to remote: {}", e)))?;
 
-        // Try fetching main branch first
-        for branch_name in &["refs/heads/main", "refs/heads/master", "HEAD"] {
-            let refspec = format!("{}:refs/remotes/origin/{}", branch_name, branch_name);
-            if remote
-                .fetch(&[&refspec], Some(&mut fetch_options), None)
-                .is_ok()
-            {
-                // Try to find the fetched reference
-                if let Ok(reference) =
-                    repo.find_reference(&format!("refs/remotes/origin/{}", branch_name))
-                {
-                    if let Ok(commit) = reference.peel_to_commit() {
-                        commit_oid = Some(commit.id());
-                        commit_message = commit
-                            .message()
-                            .unwrap_or("(no message)")
-                            .lines()
-                            .next()
-                            .unwrap_or("(no message)")
-                            .to_string();
-                        break;
-                    }
+        // Now list remote references to find HEAD or default branch
+        // This lists references without fetching objects, which is more efficient
+        let refs = remote
+            .list()
+            .map_err(|e| AppError::GitError(format!("Failed to list remote references: {}", e)))?;
+
+        // Try to find HEAD reference or default branch
+        let mut commit_oid = None;
+        let mut default_branch = None;
+
+        // First, try to find HEAD symref which points to the default branch
+        for ref_entry in refs.iter() {
+            let ref_name = ref_entry.name();
+            if ref_name == "HEAD" {
+                // HEAD points to a branch, get the branch name
+                if let Some(symref_target) = ref_entry.symref_target() {
+                    default_branch = Some(symref_target.to_string());
+                }
+            }
+        }
+
+        // If we found a default branch from HEAD symref, get its OID
+        if let Some(ref branch) = default_branch {
+            for ref_entry in refs.iter() {
+                if ref_entry.name() == branch {
+                    commit_oid = Some(ref_entry.oid());
+                    break;
+                }
+            }
+        } else {
+            info!("No HEAD symref found, trying to find default branch");
+        }
+
+        // If we still don't have a commit, try common default branch names
+        if commit_oid.is_none() {
+            for ref_entry in refs.iter() {
+                let ref_name = ref_entry.name();
+                if ref_name == "refs/heads/main" || ref_name == "refs/heads/master" {
+                    commit_oid = Some(ref_entry.oid());
+                    default_branch = Some(ref_name.to_string());
+                    break;
+                }
+            }
+        }
+
+        // Fallback: use the first branch reference
+        if commit_oid.is_none() {
+            for ref_entry in refs.iter() {
+                let ref_name = ref_entry.name();
+                if ref_name.starts_with("refs/heads/") {
+                    commit_oid = Some(ref_entry.oid());
+                    default_branch = Some(ref_name.to_string());
+                    break;
                 }
             }
         }
 
         let commit_oid = commit_oid.ok_or_else(|| {
-            AppError::GitError("Could not fetch HEAD, main, or master branch from remote. The repository may be empty or inaccessible.".to_string())
+            AppError::GitError("Could not find any branch reference on remote. The repository may be empty or inaccessible.".to_string())
         })?;
 
+        // Now fetch the commit to get its message
+        // We need to fetch the commit object to get the message
+        // Recreate callbacks and fetch options for the second fetch
+        let callbacks2 = self.create_remote_callbacks(credential, encryption_key)?;
+        let mut fetch_options2 = FetchOptions::new();
+        fetch_options2.remote_callbacks(callbacks2);
+
+        let branch_ref = default_branch.as_deref().unwrap_or("HEAD");
+        let refspec = format!("{}:refs/remotes/origin/{}", branch_ref, branch_ref);
+        remote
+            .fetch(&[&refspec], Some(&mut fetch_options2), None)
+            .map_err(|e| AppError::GitError(format!("Failed to fetch commit: {}", e)))?;
+
+        // Get commit message from the fetched commit
+        let commit_obj = repo
+            .find_commit(commit_oid)
+            .map_err(|e| AppError::GitError(format!("Failed to find commit: {}", e)))?;
+
+        let commit_message = commit_obj
+            .message()
+            .unwrap_or("(no message)")
+            .lines()
+            .next()
+            .unwrap_or("(no message)")
+            .to_string();
+
+        log::debug!(
+            "Latest commit hash: {} and message: {}",
+            commit_oid,
+            commit_message
+        );
         Ok((commit_oid.to_string(), commit_message))
     }
 
@@ -893,13 +1024,27 @@ impl GitService {
         let mut fetch_options = FetchOptions::new();
         fetch_options.remote_callbacks(callbacks);
 
-        // Fetch updates
+        // Get the current branch name before fetching
+        let head = git_repo
+            .head()
+            .map_err(|e| AppError::GitError(format!("Failed to get HEAD: {}", e)))?;
+        let branch_name = head
+            .name()
+            .ok_or_else(|| AppError::GitError("Failed to get branch name".to_string()))?;
+
+        // Extract branch name from refs/heads/... format
+        let branch_short_name = branch_name
+            .strip_prefix("refs/heads/")
+            .unwrap_or(branch_name);
+
+        // Fetch only the current branch to ensure FETCH_HEAD contains the right commit
+        let refspec = format!(
+            "refs/heads/{}:refs/heads/{}",
+            branch_short_name, branch_short_name
+        );
+        info!("Fetching branch: {}", refspec);
         remote
-            .fetch(
-                &["refs/heads/*:refs/heads/*"],
-                Some(&mut fetch_options),
-                None,
-            )
+            .fetch(&[&refspec], Some(&mut fetch_options), None)
             .map_err(|e| AppError::GitError(format!("Failed to fetch updates: {}", e)))?;
 
         // Merge fetched changes

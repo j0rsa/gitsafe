@@ -319,6 +319,10 @@ jobs:
     name: Build Docker Image
     runs-on: ubuntu-latest
     needs: [build-binary, build-web]
+    permissions:
+      contents: read
+      packages: write 
+      id-token: write # Needed for Cosign signing
     steps:
       - uses: actions/checkout@v4
       

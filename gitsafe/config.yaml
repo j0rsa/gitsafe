@@ -40,9 +40,10 @@ schema:
   sync_attempts: int
   skip_auth: bool
 environment:
+  # All env values MUST be strings
   RUST_LOG: info
   GITSAFE__SERVER__STATIC_DIR: /app/static
   # GITSAFE__SERVER__HOST: 0.0.0.0
-  GITSAFE__SERVER__PORT: 8080
+  GITSAFE__SERVER__PORT: "8080"
   CONFIG_PATH: /config/config.yaml
 image: "ghcr.io/j0rsa/gitsafe-homeassistant-{arch}"

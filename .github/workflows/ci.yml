@@ -393,30 +393,24 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: gitsafe-amd64
-          path: ha-addon/binary-amd64
-      
-      - name: Download arm64 binary artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: gitsafe-arm64
-          path: ha-addon/binary-arm64
+          path: gitsafe/binary-amd64
 
       - name: Download arm64 binary artifact as aarch64
         uses: actions/download-artifact@v4
         with:
           name: gitsafe-arm64
-          path: ha-addon/binary-aarch64
+          path: gitsafe/binary-aarch64
       
       - name: Download web build artifact
         uses: actions/download-artifact@v4
         with:
           name: web-static
-          path: ha-addon/web-static
+          path: gitsafe/web-static
       
       - name: Make binaries executable
         run: |
-          chmod +x ha-addon/binary-amd64/gitsafe
-          chmod +x ha-addon/binary-aarch64/gitsafe
+          chmod +x gitsafe/binary-amd64/gitsafe
+          chmod +x gitsafe/binary-aarch64/gitsafe
 
       - name: Login to GitHub Container Registry
         if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')

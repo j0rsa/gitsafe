@@ -1,5 +1,5 @@
 name: GitSafe
-version: "0.1.4"
+version: "0.1.5"
 slug: gitsafe
 description: "Automated Git repository backup and synchronization tool with scheduled syncing, credential management, and web UI"
 url: "https://github.com/j0rsa/gitsafe"

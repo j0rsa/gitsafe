@@ -1,4 +1,5 @@
 import type { StorybookConfig } from '@storybook/react-vite'
+import path from 'path'
 
 const config: StorybookConfig = {
   stories: ['../src/**/*.stories.@(js|jsx|ts|tsx|mdx)'],
@@ -18,6 +19,8 @@ const config: StorybookConfig = {
     builder: '@storybook/builder-vite',
   },
   viteFinal: async (config) => {
+    // Use a separate cache directory for Storybook to avoid conflicts
+    config.cacheDir = path.join(__dirname, '../node_modules/.vite-storybook')
     // Force esbuild to use wasm to avoid platform issues
     if (config.optimizeDeps) {
       config.optimizeDeps.esbuildOptions = {

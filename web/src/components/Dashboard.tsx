@@ -7,6 +7,7 @@ import { FilterPanel } from './FilterPanel'
 import { RepositoryTile } from './RepositoryTile'
 import { RepositoryEditDialog } from './RepositoryEditDialog'
 import { RepositoryAddDialog } from './RepositoryAddDialog'
+import { BatchAddDialog } from './BatchAddDialog'
 import { CredentialManagementDialog } from './CredentialManagementDialog'
 import { ThemeSelector } from './ThemeSelector'
 import { useNotifications } from '../contexts/NotificationContext'
@@ -48,6 +49,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
   const [syncingRepos, setSyncingRepos] = useState<Set<string>>(new Set())
   const [editingRepoId, setEditingRepoId] = useState<string | null>(null)
   const [showAddDialog, setShowAddDialog] = useState(false)
+  const [showBatchAddDialog, setShowBatchAddDialog] = useState(false)
   const [showCredentialDialog, setShowCredentialDialog] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const { showError, showInfo } = useNotifications()
@@ -266,6 +268,81 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
     }
   }
 
+  const handleBatchAdd = async (
+    repositories: Array<{ url: string; credential_id: string | null; id: string | null }>,
+    onProgress?: (current: number, total: number) => void
+  ) => {
+    const addedRepos: string[] = []
+    const errors: string[] = []
+
+    // Add repositories sequentially
+    for (let i = 0; i < repositories.length; i++) {
+      const repo = repositories[i]
+      try {
+        const newRepo = await apiClient.addRepository(repo)
+        if (newRepo.id) {
+          addedRepos.push(newRepo.id)
+        }
+        // Reload data after each addition to get updated state
+        await loadInitialData()
+        // Update progress (adding phase)
+        if (onProgress) {
+          onProgress(i + 1, repositories.length)
+        }
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : `Failed to add ${repo.url}`
+        errors.push(`${repo.url}: ${errorMessage}`)
+        console.error(`Failed to add repository ${repo.url}:`, err)
+        // Still update progress even on error
+        if (onProgress) {
+          onProgress(i + 1, repositories.length)
+        }
+      }
+    }
+
+    if (errors.length > 0) {
+      const errorMsg = `Failed to add ${errors.length} repository/repositories:\n${errors.join('\n')}`
+      showError(errorMsg)
+    }
+
+    if (addedRepos.length === 0) {
+      throw new Error('No repositories were added successfully')
+    }
+
+    // Sync all successfully added repositories
+    const syncPromises = addedRepos.map(async (repoId) => {
+      try {
+        setSyncingRepos((prev) => new Set(prev).add(repoId))
+        const syncResult = await apiClient.syncRepository(repoId)
+        await loadInitialData() // Reload after each sync
+        return { repoId, success: true, message: syncResult.message }
+      } catch (syncErr) {
+        console.error(`Failed to sync repository ${repoId}:`, syncErr)
+        await loadInitialData() // Still reload
+        return { repoId, success: false, error: syncErr instanceof Error ? syncErr.message : 'Unknown error' }
+      } finally {
+        setSyncingRepos((prev) => {
+          const next = new Set(prev)
+          next.delete(repoId)
+          return next
+        })
+      }
+    })
+
+    // Wait for all syncs to complete
+    const syncResults = await Promise.all(syncPromises)
+    const successfulSyncs = syncResults.filter(r => r.success).length
+    const failedSyncs = syncResults.filter(r => !r.success)
+
+    if (failedSyncs.length > 0) {
+      showError(`Added ${addedRepos.length} repositories, but ${failedSyncs.length} sync(s) failed. Check repository tiles for details.`)
+    } else {
+      showInfo(`Successfully added and synced ${successfulSyncs} repository/repositories`)
+    }
+
+    setShowBatchAddDialog(false)
+  }
+
   const editingRepository = editingRepoId
     ? allRepositories.find((r) => r.id === editingRepoId)
     : null
@@ -333,6 +410,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
               + Add Repository
             </button>
             <button
+              className="add-repository-btn"
+              onClick={() => setShowBatchAddDialog(true)}
+            >
+              + Batch Add Repositories
+            </button>
+            <button
               className="manage-credentials-btn"
               onClick={() => setShowCredentialDialog(true)}
             >
@@ -388,6 +471,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
           onClose={() => setShowAddDialog(false)}
           onSave={handleAddRepository}
           urlSuggestions={urlSuggestions}
+        />
+        <BatchAddDialog
+          credentials={credentials}
+          isOpen={showBatchAddDialog}
+          onClose={() => setShowBatchAddDialog(false)}
+          onBatchAdd={handleBatchAdd}
         />
         <CredentialManagementDialog
           isOpen={showCredentialDialog}

@@ -1,4 +1,4 @@
-.PHONY: build run api web test fix hooks
+.PHONY: build run api web test fix hooks storybook storybook-build
 
 # Build both web and API
 build: web api
@@ -87,6 +87,18 @@ fix:
 	@echo "=========================================="
 	@echo "✅ All checks passed!"
 	@echo "=========================================="
+
+# Run Storybook development server
+storybook:
+	@echo "📚 Starting Storybook development server..."
+	@cd web && bun run storybook
+
+# Build Storybook static files
+storybook-build:
+	@echo "📚 Building Storybook static files..."
+	@cd web && bun run build-storybook
+	@echo "✅ Storybook build complete!"
+	@echo "Static files are in: web/storybook-static"
 
 # Setup git hooks to use .githooks directory
 hooks:
